@@ -465,7 +465,8 @@ function renderTable(type,isPago){
     tbody.innerHTML=`<tr class="empty-row"><td colspan="11">${msg}</td></tr>`;
     return;
   }
-  tbody.innerHTML = rows.map((r,i)=>{
+  tbody.innerHTML = rows.map((r)=>{
+    const i = allRows.indexOf(r); // always use original index for edit/delete/actions
     const val='R$\u00a0'+fmtBR(r.valor);
     const byLabel=r.by?`<span class="td-by">por ${r.by}</span>`:'';
     const contratoLabel=r.contrato?`<span class="td-by" style="color:var(--teal-dark);font-weight:600">Contrato: ${r.contrato}</span>`:'';
