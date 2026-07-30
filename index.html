@@ -19,7 +19,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-red{background:var(--red);color:white;border-color:var(--red)}.btn-red:hover{opacity:.9}
 .btn-sm{padding:4px 10px;font-size:12px}
 .main{max-width:1150px;margin:0 auto;padding:1.5rem 1rem 3rem}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
+.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:1.5rem}
 .card{background:white;border-radius:10px;padding:14px 16px;box-shadow:var(--shadow)}
 .card-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
 .card-count{font-size:12px;color:var(--gray-4);margin-bottom:3px}
@@ -32,6 +32,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tab-btn{flex:1;padding:8px 12px;border-radius:7px;border:none;font-size:13px;font-family:inherit;cursor:pointer;background:transparent;color:var(--gray-5);font-weight:500;transition:all .15s}
 .tab-btn.active{color:white}
 .tab-urgent.active{background:var(--red)}.tab-important.active{background:var(--amber)}.tab-paid.active{background:var(--green)}.tab-hist.active{background:var(--teal-dark)}
+.tab-manut.active{background:#7B2D8B}
+.pill-local{background:#EDFAF3;color:#1A7A45}
+.pill-buscando{background:#FEF7E6;color:#B9770E}
+.pill-fora{background:#FDF0EE;color:#C0392B}
+.pill-comprado{background:#E6F8FB;color:#0E8FA6}
+.pill-hoje{background:#FDF0EE;color:#C0392B;font-size:11px}
+.pill-semana{background:#FEF7E6;color:#B9770E;font-size:11px}
+.pill-sem-urgencia{background:#EDFAF3;color:#1A7A45;font-size:11px}
 .tab-btn:not(.active):hover{background:var(--gray-1);color:var(--gray-6)}
 .panel{background:white;border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
 .panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--gray-2)}
@@ -156,12 +164,14 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
     <div class="card card-important"><div class="card-label">Importantes</div><div class="card-count" id="c-i-count">0 obras</div><div class="card-value" id="c-i-val">R$ 0,00</div></div>
     <div class="card card-paid"><div class="card-label">Obras pagas</div><div class="card-count" id="c-p-count">0 obras</div><div class="card-value" id="c-p-val">R$ 0,00</div></div>
     <div class="card card-total"><div class="card-label">Total em aberto</div><div class="card-count">urgentes + importantes</div><div class="card-value" id="c-t-val">R$ 0,00</div></div>
+    <div class="card" style="border-left:3px solid #7B2D8B"><div class="card-label" style="color:#7B2D8B">Manutenção</div><div class="card-count" id="c-m-count">0 itens</div><div class="card-value" style="color:#7B2D8B" id="c-m-val">R$ 0,00</div></div>
   </div>
 
   <div class="tabs-bar">
     <button class="tab-btn tab-urgent active" onclick="setTab('urgente',this)">🔴 Urgentes</button>
     <button class="tab-btn tab-important" onclick="setTab('importante',this)">🟡 Importantes</button>
     <button class="tab-btn tab-paid" onclick="setTab('pago',this)">🟢 Obras pagas</button>
+    <button class="tab-btn tab-manut" onclick="setTab('manutencao',this)">🔧 Manutenção</button>
     <button class="tab-btn tab-hist" onclick="setTab('historico',this)">📋 Histórico</button>
   </div>
 
@@ -209,6 +219,25 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
       <tbody id="tbody-pago"></tbody>
     </table></div>
     <div class="panel-footer">Total pago: <strong id="t-pago">R$ 0,00</strong></div>
+  </div>
+
+  <!-- MANUTENÇÃO -->
+  <div id="panel-manutencao" class="panel" style="display:none">
+    <div class="panel-header">
+      <div class="panel-title">🔧 Compras de Manutenção</div>
+      <button class="btn btn-sm" style="background:#7B2D8B;color:white;border-color:#7B2D8B" onclick="openModalManut()">
+        <svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nova compra
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Obra / Local</th><th>Material</th><th>Qtd.</th><th>Fornecedor</th><th>Valor</th><th>Urgência</th><th>Situação de compra</th><th>Anexos</th><th style="text-align:right">Ações</th>
+        </tr></thead>
+        <tbody id="tbody-manutencao"></tbody>
+      </table>
+    </div>
+    <div class="panel-footer">Total manutenção: <strong id="t-manutencao">R$ 0,00</strong></div>
   </div>
 
   <!-- HISTÓRICO -->
@@ -375,6 +404,51 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
   </div>
 </div>
 
+<!-- MODAL MANUTENÇÃO -->
+<div class="modal-overlay" id="manut-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="manut-title">Nova compra de manutenção</div>
+      <button class="act" onclick="closeModalManut()"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group span2"><label>Seu nome <span style="color:var(--red)">*</span></label><input id="m-by" type="text" placeholder="Ex: Ander"></div>
+        <div class="form-group span2"><label>Obra / Local da manutenção <span style="color:var(--red)">*</span></label><input id="m-obra" type="text" placeholder="Ex: Casa 113 — janela sala"></div>
+        <div class="form-group span2"><label>Material necessário <span style="color:var(--red)">*</span></label><input id="m-material" type="text" placeholder="Ex: Silicone neutro transparente"></div>
+        <div class="form-group"><label>Quantidade</label><input id="m-qtd" type="text" placeholder="Ex: 3 tubos"></div>
+        <div class="form-group"><label>Urgência</label>
+          <select id="m-urgencia">
+            <option value="hoje">🔴 Hoje</option>
+            <option value="semana">🟡 Esta semana</option>
+            <option value="sem-urgencia">🟢 Sem urgência</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Situação de compra</label>
+          <select id="m-situacao">
+            <option value="buscando">🟡 Buscando local</option>
+            <option value="local">🟢 Encontrado local</option>
+            <option value="fora">🔴 Comprar fora do estado</option>
+            <option value="comprado">✅ Comprado</option>
+          </select>
+        </div>
+        <div class="form-group span2" style="background:var(--gray-1);border-radius:var(--radius);padding:10px 12px">
+          <label style="color:var(--gray-5)">Dados do fornecedor (quando definido)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+            <input id="m-fornecedor" type="text" placeholder="Fornecedor">
+            <input id="m-valor" type="text" placeholder="Valor (R$)">
+          </div>
+        </div>
+        <div class="form-group span2"><label>Observação</label><input id="m-obs" type="text" placeholder="Ex: Verificar cor antes de comprar"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModalManut()">Cancelar</button>
+      <button class="btn btn-sm" style="background:#7B2D8B;color:white;border-color:#7B2D8B" onclick="saveManut()">Salvar compra</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="file-input" accept=".json" style="display:none" onchange="handleImport(event)">
 
 <script>
@@ -398,7 +472,7 @@ const INITIAL = {
   ]
 };
 
-let data = {urgente:[],importante:[],pago:[],historico:[]};
+let data = {urgente:[],importante:[],pago:[],manutencao:[],historico:[]};
 let currentTab = 'urgente';
 let editId = null;
 let modalType = 'urgente';
@@ -552,6 +626,10 @@ function updateSummary(){
   document.getElementById('t-urgente').textContent='R$ '+fmtBR(su);
   document.getElementById('t-importante').textContent='R$ '+fmtBR(si);
   document.getElementById('t-pago').textContent='R$ '+fmtBR(sp);
+  const sm=(data.manutencao||[]).reduce((a,r)=>a+Number(r.valor||0),0);
+  document.getElementById('c-m-count').textContent=(data.manutencao||[]).length+' item'+((data.manutencao||[]).length!==1?'s':'');
+  document.getElementById('c-m-val').textContent='R$ '+fmtBR(sm);
+  document.getElementById('t-manutencao').textContent='R$ '+fmtBR(sm);
   document.getElementById('badge-u').textContent=data.urgente.length;
   document.getElementById('badge-i').textContent=data.importante.length;
   document.getElementById('badge-p').textContent=data.pago.length;
@@ -561,10 +639,11 @@ function setTab(tab,el){
   currentTab=tab;
   document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['urgente','importante','pago','historico'].forEach(t=>{
+  ['urgente','importante','pago','manutencao','historico'].forEach(t=>{
     document.getElementById('panel-'+t).style.display=t===tab?'block':'none';
   });
   if(tab==='historico') renderHistorico();
+  if(tab==='manutencao') renderManutencao();
 }
 
 // ---- ENTRY MODAL ----
@@ -1088,6 +1167,117 @@ function calcEntregaPorMedicao(){
   document.getElementById('f-entrega').value = iso;
 }
 
+// ---- MANUTENÇÃO ----
+let manutEditId=null;
+
+function openModalManut(idx=null){
+  manutEditId=idx;
+  const fields=['m-by','m-obra','m-material','m-qtd','m-fornecedor','m-valor','m-obs'];
+  if(idx!==null){
+    const r=data.manutencao[idx];
+    document.getElementById('m-by').value=r.by||'';
+    document.getElementById('m-obra').value=r.obra||'';
+    document.getElementById('m-material').value=r.material||'';
+    document.getElementById('m-qtd').value=r.qtd||'';
+    document.getElementById('m-fornecedor').value=r.fornecedor||'';
+    document.getElementById('m-valor').value=r.valor?fmtBR(r.valor):'';
+    document.getElementById('m-obs').value=r.obs||'';
+    document.getElementById('m-urgencia').value=r.urgencia||'hoje';
+    document.getElementById('m-situacao').value=r.situacao||'buscando';
+    document.getElementById('manut-title').textContent='Editar compra de manutenção';
+  } else {
+    fields.forEach(id=>document.getElementById(id).value='');
+    document.getElementById('m-by').value=lastBy||'';
+    document.getElementById('m-urgencia').value='hoje';
+    document.getElementById('m-situacao').value='buscando';
+    document.getElementById('manut-title').textContent='Nova compra de manutenção';
+  }
+  document.getElementById('manut-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('m-obra').focus(),100);
+}
+
+function closeModalManut(){ document.getElementById('manut-overlay').classList.remove('open'); manutEditId=null; }
+
+async function saveManut(){
+  const byVal=document.getElementById('m-by').value.trim();
+  if(!byVal){ alert('O campo "Seu nome" é obrigatório.'); document.getElementById('m-by').focus(); return; }
+  const obra=document.getElementById('m-obra').value.trim();
+  const material=document.getElementById('m-material').value.trim();
+  if(!obra||!material){ alert('Obra/Local e Material são obrigatórios.'); return; }
+  const valorRaw=document.getElementById('m-valor').value.replace(/\./g,'').replace(',','.');
+  const entry={
+    by:byVal, obra, material,
+    qtd:document.getElementById('m-qtd').value.trim(),
+    fornecedor:document.getElementById('m-fornecedor').value.trim(),
+    valor:parseFloat(valorRaw)||0,
+    obs:document.getElementById('m-obs').value.trim(),
+    urgencia:document.getElementById('m-urgencia').value,
+    situacao:document.getElementById('m-situacao').value,
+    ts:new Date().toISOString()
+  };
+  if(!data.manutencao) data.manutencao=[];
+  const isEdit=manutEditId!==null;
+  if(isEdit){ data.manutencao[manutEditId]=entry; } else { data.manutencao.push(entry); }
+  if(byVal) lastBy=byVal;
+  logAction(byVal, isEdit?'Editou':'Criou', {obra,contrato:'Manutenção'}, `Manutenção: ${material}`);
+  await persist(); renderManutencao(); updateSummary(); closeModalManut();
+}
+
+async function removeManut(idx){
+  const r=data.manutencao[idx];
+  const user=prompt('Seu nome (obrigatório para registrar a remoção):',lastBy||'');
+  if(!user||!user.trim()){ alert('Nome obrigatório.'); return; }
+  if(!confirm(`Remover "${r.material}" de ${r.obra}?`)) return;
+  logAction(user.trim(),'Removeu',{obra:r.obra,contrato:'Manutenção'},`Manutenção: ${r.material}`);
+  data.manutencao.splice(idx,1);
+  await persist(); renderManutencao(); updateSummary();
+}
+
+async function updateManutSituacao(idx, val){
+  const r=data.manutencao[idx];
+  const user=prompt('Seu nome (obrigatório):',lastBy||'');
+  if(!user||!user.trim()){ alert('Nome obrigatório.'); renderManutencao(); return; }
+  const labels={'buscando':'Buscando local','local':'Encontrado local','fora':'Comprar fora do estado','comprado':'Comprado'};
+  logAction(user.trim(),'Editou',{obra:r.obra,contrato:'Manutenção'},`Situação: ${labels[val]}`);
+  r.situacao=val; if(user) lastBy=user.trim();
+  await persist(); renderManutencao();
+}
+
+function renderManutencao(){
+  if(!data.manutencao) data.manutencao=[];
+  const tbody=document.getElementById('tbody-manutencao');
+  const rows=data.manutencao;
+  if(!rows.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="10">Nenhuma compra de manutenção cadastrada.</td></tr>';
+    return;
+  }
+  const urgLabels={hoje:'🔴 Hoje',semana:'🟡 Esta semana','sem-urgencia':'🟢 Sem urgência'};
+  const sitLabels={buscando:'🟡 Buscando local',local:'🟢 Encontrado local',fora:'🔴 Fora do estado',comprado:'✅ Comprado'};
+  const sitClass={buscando:'pill-buscando',local:'pill-local',fora:'pill-fora',comprado:'pill-comprado'};
+  tbody.innerHTML=rows.map((r,i)=>`<tr>
+    <td class="td-num">${i+1}</td>
+    <td class="td-obra">${r.obra}${r.by?`<span class="td-by">por ${r.by}</span>`:''}</td>
+    <td><strong>${r.material}</strong>${r.obs?`<span class="td-by">${r.obs}</span>`:''}</td>
+    <td>${r.qtd||'—'}</td>
+    <td>${r.fornecedor||'—'}</td>
+    <td class="td-valor">${r.valor?'R$\u00a0'+fmtBR(r.valor):'—'}</td>
+    <td><span class="pill pill-${r.urgencia||'hoje'}">${urgLabels[r.urgencia||'hoje']}</span></td>
+    <td>
+      <select onchange="updateManutSituacao(${i},this.value)" style="font-size:11px;padding:2px 6px;border-radius:20px;border:1px solid var(--gray-3);font-family:inherit">
+        <option value="buscando" ${r.situacao==='buscando'?'selected':''}>🟡 Buscando local</option>
+        <option value="local" ${r.situacao==='local'?'selected':''}>🟢 Encontrado local</option>
+        <option value="fora" ${r.situacao==='fora'?'selected':''}>🔴 Fora do estado</option>
+        <option value="comprado" ${r.situacao==='comprado'?'selected':''}>✅ Comprado</option>
+      </select>
+    </td>
+    <td>—</td>
+    <td class="td-actions">
+      <button class="act" onclick="openModalManut(${i})" title="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      <button class="act act-del" onclick="removeManut(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+    </td>
+  </tr>`).join('');
+}
+
 // ---- AUDIT LOG ----
 function logAction(user, action, r, detail){
   if(!data.historico) data.historico=[];
@@ -1455,6 +1645,7 @@ function handleImport(e){
 }
 
 // ---- INIT ----
+document.getElementById('manut-overlay').addEventListener('click',function(e){ if(e.target===this) closeModalManut(); });
 document.getElementById('modal-overlay').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
 document.getElementById('attach-overlay').addEventListener('click',function(e){ if(e.target===this) closeAttach(); });
 document.getElementById('setup-overlay').addEventListener('click',function(e){ if(e.target===this) closeSetup(); });
