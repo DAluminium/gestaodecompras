@@ -342,14 +342,18 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
         <div class="form-group"><label>Data de entrega da obra</label><input id="f-entrega" type="date"></div>
         <div class="form-group span2" style="background:var(--teal-light);border-radius:var(--radius);padding:10px 12px">
           <label style="color:var(--teal-dark)">📐 Data de medição <span style="font-weight:400;font-size:11px">(opcional — recalcula entrega automaticamente)</span></label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+          <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:10px;margin-top:6px;align-items:center">
             <input id="f-medicao" type="date" onchange="calcEntregaPorMedicao()" style="background:white">
+            <div>
+              <label style="font-size:11px;color:var(--teal-dark);font-weight:600;display:block;margin-bottom:4px">Dias úteis</label>
+              <input id="f-dias-uteis" type="number" placeholder="Ex: 15" min="1" max="365" onchange="calcEntregaPorMedicao()" style="background:white;width:100%;text-align:center;padding:7px 8px;border-radius:var(--radius);border:1px solid var(--gray-3);font-size:13px;font-family:inherit">
+            </div>
             <div style="display:flex;align-items:center;gap:8px">
               <span style="font-size:12px;color:var(--teal-dark)">→ Nova entrega:</span>
               <strong id="f-medicao-resultado" style="font-size:13px;color:var(--teal-dark)">—</strong>
             </div>
           </div>
-          <span class="note" style="color:var(--teal-dark);margin-top:6px">Medição + 20 dias úteis (seg–sex). Ao salvar, atualiza a data de entrega automaticamente.</span>
+          <span class="note" style="color:var(--teal-dark);margin-top:6px">Medição + dias úteis (seg–sex). Ao salvar, atualiza a data de entrega automaticamente.</span>
         </div>
         <div class="form-group" id="pay-group" style="display:none"><label>Data do pagamento</label><input id="f-datapag" type="date"></div>
         <div class="section-divider" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-4);padding:10px 0 6px;margin-top:6px;border-top:1px solid var(--gray-2);grid-column:1/-1">Dados adicionais (opcional)</div>
@@ -771,7 +775,8 @@ function openModal(type,idx=null){
     document.getElementById('f-dataorc').value=r.dataOrc||'';
     document.getElementById('f-entrega').value=(r.entrega&&r.entrega!=='—')?r.entrega:'';
     document.getElementById('f-medicao').value=r.medicao||'';
-    document.getElementById('f-medicao-resultado').textContent=r.medicao?addWorkdays(new Date(r.medicao),20).toLocaleDateString('pt-BR'):'—';
+    document.getElementById('f-dias-uteis').value=r.diasUteis||'';
+    document.getElementById('f-medicao-resultado').textContent=r.medicao?addWorkdays(new Date(r.medicao),r.diasUteis||0).toLocaleDateString('pt-BR'):'—';
     document.getElementById('f-status').value=r.status||'Pendente';
     document.getElementById('f-tipo').value=r.tipo||'padrao';
     document.getElementById('f-datapag').value=r.dataPag||'';
@@ -783,6 +788,7 @@ function openModal(type,idx=null){
   } else {
     ['f-obra','f-contrato','f-material','f-nrorc','f-fornecedor','f-valor','f-dataorc','f-entrega','f-datapag','f-pix','f-pix-nome','f-banco','f-conta','f-medicao'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-medicao-resultado').textContent='—';
+    document.getElementById('f-dias-uteis').value='';
     document.getElementById('f-by').value=lastBy;
     document.getElementById('f-status').value='Pendente';
     document.getElementById('f-tipo').value='padrao';
@@ -808,6 +814,7 @@ function saveEntry(){
     dataOrc:document.getElementById('f-dataorc').value,
     entrega:document.getElementById('f-entrega').value||'—',
     medicao:document.getElementById('f-medicao').value||'',
+    diasUteis:parseInt(document.getElementById('f-dias-uteis').value)||0,
     status:document.getElementById('f-status').value,
     tipo:document.getElementById('f-tipo').value||'padrao',
     by:byVal,
@@ -1264,13 +1271,15 @@ function addWorkdays(date, days){
 
 function calcEntregaPorMedicao(){
   const medicao = document.getElementById('f-medicao').value;
+  const diasEl = document.getElementById('f-dias-uteis');
+  const dias = parseInt(diasEl.value)||0;
+  if(!dias){ resultado.textContent='—'; return; }
   const resultado = document.getElementById('f-medicao-resultado');
   if(!medicao){ resultado.textContent='—'; return; }
-  const novaEntrega = addWorkdays(new Date(medicao), 20);
+  const novaEntrega = addWorkdays(new Date(medicao), dias);
   const fmt = novaEntrega.toLocaleDateString('pt-BR');
   const iso = novaEntrega.toISOString().slice(0,10);
   resultado.textContent = fmt;
-  // Auto-fill the entrega field
   document.getElementById('f-entrega').value = iso;
 }
 
