@@ -31,7 +31,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tabs-bar{display:flex;gap:4px;margin-bottom:1rem;background:white;border-radius:10px;padding:5px;box-shadow:var(--shadow)}
 .tab-btn{flex:1;padding:8px 12px;border-radius:7px;border:none;font-size:13px;font-family:inherit;cursor:pointer;background:transparent;color:var(--gray-5);font-weight:500;transition:all .15s}
 .tab-btn.active{color:white}
-.tab-urgent.active{background:var(--red)}.tab-important.active{background:var(--amber)}.tab-paid.active{background:var(--green)}
+.tab-urgent.active{background:var(--red)}.tab-important.active{background:var(--amber)}.tab-paid.active{background:var(--green)}.tab-hist.active{background:var(--teal-dark)}
 .tab-btn:not(.active):hover{background:var(--gray-1);color:var(--gray-6)}
 .panel{background:white;border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
 .panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--gray-2)}
@@ -162,6 +162,7 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
     <button class="tab-btn tab-urgent active" onclick="setTab('urgente',this)">🔴 Urgentes</button>
     <button class="tab-btn tab-important" onclick="setTab('importante',this)">🟡 Importantes</button>
     <button class="tab-btn tab-paid" onclick="setTab('pago',this)">🟢 Obras pagas</button>
+    <button class="tab-btn tab-hist" onclick="setTab('historico',this)">📋 Histórico</button>
   </div>
 
   <div class="search-bar">
@@ -209,6 +210,25 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
     </table></div>
     <div class="panel-footer">Total pago: <strong id="t-pago">R$ 0,00</strong></div>
   </div>
+
+  <!-- HISTÓRICO -->
+  <div id="panel-historico" class="panel" style="display:none">
+    <div class="panel-header">
+      <div class="panel-title">📋 Histórico de alterações</div>
+      <button class="btn btn-outline btn-sm" onclick="exportHistorico()">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar histórico
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Data / Hora</th><th>Usuário</th><th>Ação</th><th>Obra / Contrato</th><th>Detalhe</th>
+        </tr></thead>
+        <tbody id="tbody-historico"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL ORÇAMENTO -->
@@ -378,7 +398,7 @@ const INITIAL = {
   ]
 };
 
-let data = {urgente:[],importante:[],pago:[]};
+let data = {urgente:[],importante:[],pago:[],historico:[]};
 let currentTab = 'urgente';
 let editId = null;
 let modalType = 'urgente';
@@ -541,9 +561,10 @@ function setTab(tab,el){
   currentTab=tab;
   document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['urgente','importante','pago'].forEach(t=>{
+  ['urgente','importante','pago','historico'].forEach(t=>{
     document.getElementById('panel-'+t).style.display=t===tab?'block':'none';
   });
+  if(tab==='historico') renderHistorico();
 }
 
 // ---- ENTRY MODAL ----
@@ -589,6 +610,7 @@ function closeModal(){ document.getElementById('modal-overlay').classList.remove
 function saveEntry(){
   const valorRaw=document.getElementById('f-valor').value.replace(/\./g,'').replace(',','.');
   const byVal=document.getElementById('f-by').value.trim();
+  if(!byVal){ alert('O campo "Seu nome" é obrigatório.'); document.getElementById('f-by').focus(); return; }
   if(byVal) lastBy=byVal;
   const entry={
     obra:document.getElementById('f-obra').value.trim(),
@@ -611,36 +633,46 @@ function saveEntry(){
   };
   if(modalType==='pago') entry.dataPag=document.getElementById('f-datapag').value;
   if(!entry.obra||!entry.contrato){ alert('Obra / Cliente e Nº do Contrato são obrigatórios.'); return; }
-  if(editId!==null){ data[modalType][editId]=entry; }
-  else { data[modalType].push(entry); }
+  const isEdit = editId!==null;
+  if(isEdit){ data[modalType][editId]=entry; } else { data[modalType].push(entry); }
+  logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':'Novo orçamento lançado');
   reclassifyAll();
   persist(); render(); checkNotifications(); closeModal();
 }
 function editEntry(type,idx){ openModal(type,idx); }
 function removeEntry(type,idx){
-  if(!confirm('Remover este orçamento e todos os seus anexos?')) return;
   const r=data[type][idx];
-  (r.attachments||[]).forEach(()=>{}); // files remain on Cloudinary
+  const user=prompt('Seu nome (obrigatório para registrar a remoção):',lastBy||'');
+  if(!user||!user.trim()){ alert('Nome obrigatório para registrar a remoção.'); return; }
+  if(!confirm(`Remover "${r.obra}" e todos os seus anexos?`)) return;
+  (r.attachments||[]).forEach(()=>{});
+  logAction(user.trim(),'Removeu',r,`Valor: R$ ${fmtBR(r.valor)}`);
   data[type].splice(idx,1);
   persist(); render();
 }
 function markPaid(type,idx){
   const r=data[type][idx];
+  const user=prompt('Seu nome (obrigatório para registrar o pagamento):',lastBy||'');
+  if(!user||!user.trim()){ alert('Nome obrigatório para registrar o pagamento.'); return; }
   const paid={...r,dataPag:new Date().toISOString().slice(0,10)};
   delete paid.status;
   data.pago.push(paid);
   data[type].splice(idx,1);
+  logAction(user.trim(),'Marcou como Pago',r,`Valor: R$ ${fmtBR(r.valor)}`);
   persist(); render();
   setTab('pago',document.querySelectorAll('.tab-btn')[2]);
 }
 function moveEntry(from,to,idx){
   const labels={urgente:'Urgentes 🔴',importante:'Importantes 🟡'};
   const r=data[from][idx];
+  const user=prompt('Seu nome (obrigatório para registrar a alteração):','');
+  if(!user||!user.trim()){ alert('Nome obrigatório para registrar a movimentação.'); return; }
   if(!confirm(`Mover "${r.obra}" para ${labels[to]}?`)) return;
   if(to==='urgente') r.status=r.status==='Pendente'?'Atrasada':r.status;
   data[to].push({...r});
   data[from].splice(idx,1);
-  persist(); render();
+  logAction(user.trim(), `Moveu para ${to==='urgente'?'Urgentes':'Importantes'}`, r, `De: ${from==='urgente'?'Urgentes':'Importantes'}`);
+  persist(); render(); checkNotifications();
   const tabIdx=to==='urgente'?0:1;
   setTab(to,document.querySelectorAll('.tab-btn')[tabIdx]);
 }
@@ -1054,6 +1086,60 @@ function calcEntregaPorMedicao(){
   resultado.textContent = fmt;
   // Auto-fill the entrega field
   document.getElementById('f-entrega').value = iso;
+}
+
+// ---- AUDIT LOG ----
+function logAction(user, action, r, detail){
+  if(!data.historico) data.historico=[];
+  data.historico.unshift({
+    ts: new Date().toISOString(),
+    user: user||'—',
+    action,
+    obra: r.obra||'—',
+    contrato: r.contrato||'—',
+    detail: detail||''
+  });
+  // Keep last 500 entries
+  if(data.historico.length>500) data.historico=data.historico.slice(0,500);
+}
+
+function renderHistorico(){
+  if(!data.historico||!data.historico.length){
+    document.getElementById('tbody-historico').innerHTML='<tr class="empty-row"><td colspan="5">Nenhuma alteração registrada ainda.</td></tr>';
+    return;
+  }
+  const actionColor={
+    'Criou':'#1A7A45','Editou':'#0E8FA6','Moveu para Urgentes':'#C0392B',
+    'Moveu para Importantes':'#B9770E','Marcou como Pago':'#1A7A45','Removeu':'#C0392B'
+  };
+  document.getElementById('tbody-historico').innerHTML=data.historico.map(h=>{
+    const dt=new Date(h.ts);
+    const dtFmt=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const color=actionColor[h.action]||'var(--gray-5)';
+    return`<tr>
+      <td style="white-space:nowrap;font-size:12px;color:var(--gray-4)">${dtFmt}</td>
+      <td style="font-weight:600">${h.user}</td>
+      <td><span style="color:${color};font-weight:600">${h.action}</span></td>
+      <td>${h.obra}<span class="td-by">Contrato: ${h.contrato}</span></td>
+      <td style="font-size:12px;color:var(--gray-5)">${h.detail}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportHistorico(){
+  if(!data.historico||!data.historico.length){ alert('Nenhum histórico para exportar.'); return; }
+  const rows=[['Data/Hora','Usuário','Ação','Obra','Contrato','Detalhe']];
+  data.historico.forEach(h=>{
+    const dt=new Date(h.ts);
+    rows.push([dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR'),h.user,h.action,h.obra,h.contrato,h.detail]);
+  });
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const dt=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  a.href=url; a.download=`historico_daluminium_${dt}.csv`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ---- SEARCH ----
