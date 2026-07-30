@@ -36,6 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pill-local{background:#EDFAF3;color:#1A7A45}
 .pill-buscando{background:#FEF7E6;color:#B9770E}
 .pill-fora{background:#FDF0EE;color:#C0392B}
+.pill-transporte{background:#E8F4FD;color:#1A5276}
 .pill-comprado{background:#E6F8FB;color:#0E8FA6}
 .pill-hoje{background:#FDF0EE;color:#C0392B;font-size:11px}
 .pill-semana{background:#FEF7E6;color:#B9770E;font-size:11px}
@@ -237,7 +238,31 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
         <tbody id="tbody-manutencao"></tbody>
       </table>
     </div>
-    <div class="panel-footer">Total manutenção: <strong id="t-manutencao">R$ 0,00</strong></div>
+    <div class="panel-footer">Total manutenção em aberto: <strong id="t-manutencao">R$ 0,00</strong></div>
+
+    <!-- CONCLUÍDAS -->
+    <div style="padding:0 16px 16px">
+      <div style="margin-top:16px;border-top:1px solid var(--gray-2);padding-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleConcluidas()">
+          <span style="font-size:13px;font-weight:600;color:var(--gray-5)">✅ Compras concluídas (<span id="count-concluidas">0</span>)</span>
+          <span id="toggle-concluidas-icon" style="color:var(--gray-4);font-size:16px">▼</span>
+        </div>
+        <div id="panel-concluidas" style="display:none;margin-top:10px;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">#</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Obra / Local</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Materiais</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Fornecedor</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Total</th>
+              <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Concluído por</th>
+              <th style="padding:6px 10px;text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-4);border-bottom:1px solid var(--gray-2);background:var(--gray-1)">Ações</th>
+            </tr></thead>
+            <tbody id="tbody-concluidas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- HISTÓRICO -->
@@ -427,6 +452,7 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
             <option value="buscando">🟡 Buscando local</option>
             <option value="local">🟢 Encontrado local</option>
             <option value="fora">🔴 Comprar fora do estado</option>
+            <option value="transporte">🚚 Em transporte</option>
             <option value="comprado">✅ Comprado</option>
           </select>
         </div>
@@ -480,7 +506,7 @@ const INITIAL = {
   ]
 };
 
-let data = {urgente:[],importante:[],pago:[],manutencao:[],historico:[]};
+let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[]};
 let currentTab = 'urgente';
 let editId = null;
 let modalType = 'urgente';
@@ -651,7 +677,7 @@ function setTab(tab,el){
     document.getElementById('panel-'+t).style.display=t===tab?'block':'none';
   });
   if(tab==='historico') renderHistorico();
-  if(tab==='manutencao') renderManutencao();
+  if(tab==='manutencao'){ renderManutencao(); document.getElementById('count-concluidas').textContent=(data.manutComprada||[]).length; }
 }
 
 // ---- ENTRY MODAL ----
@@ -1298,10 +1324,74 @@ async function updateManutSituacao(idx,val){
   const r=data.manutencao[idx];
   const user=prompt('Seu nome (obrigatório):',lastBy||'');
   if(!user||!user.trim()){ alert('Nome obrigatório.'); renderManutencao(); return; }
-  const labels={buscando:'Buscando local',local:'Encontrado local',fora:'Comprar fora do estado',comprado:'Comprado'};
+  const labels={buscando:'Buscando local',local:'Encontrado local',fora:'Comprar fora do estado',transporte:'Em transporte',comprado:'Comprado'};
   logAction(user.trim(),'Editou',{obra:r.obra,contrato:'Manutenção'},`Situação: ${labels[val]}`);
-  r.situacao=val; if(user) lastBy=user.trim();
-  await persist(); renderManutencao();
+  if(user) lastBy=user.trim();
+
+  if(val==='comprado'){
+    // Move to concluídas
+    if(!data.manutComprada) data.manutComprada=[];
+    data.manutComprada.unshift({...r, situacao:'comprado', concluidoPor:user.trim(), concluidoEm:new Date().toISOString()});
+    data.manutencao.splice(idx,1);
+  } else {
+    r.situacao=val;
+  }
+  await persist(); renderManutencao(); updateSummary();
+}
+
+function toggleConcluidas(){
+  const panel=document.getElementById('panel-concluidas');
+  const icon=document.getElementById('toggle-concluidas-icon');
+  if(panel.style.display==='none'){
+    panel.style.display='block';
+    icon.textContent='▲';
+    renderConcluidas();
+  } else {
+    panel.style.display='none';
+    icon.textContent='▼';
+  }
+}
+
+function renderConcluidas(){
+  if(!data.manutComprada) data.manutComprada=[];
+  const rows=data.manutComprada;
+  document.getElementById('count-concluidas').textContent=rows.length;
+  const tbody=document.getElementById('tbody-concluidas');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:1rem;color:var(--gray-4)">Nenhuma compra concluída ainda.</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map((r,i)=>{
+    const itens=(r.itens||[]).map(it=>it.material+(it.qtd?' ('+it.qtd+')':'')).join(', ');
+    const dt=r.concluidoEm?new Date(r.concluidoEm).toLocaleDateString('pt-BR'):'—';
+    return`<tr style="background:var(--green-light)">
+      <td style="padding:6px 10px;color:var(--gray-4)">${i+1}</td>
+      <td style="padding:6px 10px;font-weight:600">${r.obra}</td>
+      <td style="padding:6px 10px">${itens||r.material||'—'}</td>
+      <td style="padding:6px 10px">${r.fornecedor||'—'}</td>
+      <td style="padding:6px 10px;font-weight:600">${r.valor?'R$\u00a0'+fmtBR(r.valor):'—'}</td>
+      <td style="padding:6px 10px"><strong>${r.concluidoPor||'—'}</strong><br><span style="font-size:10px;color:var(--gray-4)">${dt}</span></td>
+      <td style="padding:6px 10px;text-align:right">
+        <button class="act" onclick="restoreManut(${i})" title="Reabrir" style="font-size:10px">↩</button>
+        <button class="act act-del" onclick="removeConcluidaManut(${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function restoreManut(idx){
+  const r=data.manutComprada[idx];
+  if(!confirm(`Reabrir "${r.obra}" na lista de manutenção?`)) return;
+  data.manutencao.push({...r, situacao:'buscando', concluidoPor:undefined, concluidoEm:undefined});
+  data.manutComprada.splice(idx,1);
+  logAction(lastBy||'—','Editou',{obra:r.obra,contrato:'Manutenção'},'Reaberto na lista de manutenção');
+  await persist(); renderManutencao(); renderConcluidas(); updateSummary();
+}
+
+async function removeConcluidaManut(idx){
+  if(!confirm('Remover permanentemente este registro?')) return;
+  data.manutComprada.splice(idx,1);
+  await persist(); renderConcluidas();
 }
 
 function renderManutencao(){
@@ -1328,7 +1418,8 @@ function renderManutencao(){
           <option value="buscando" ${r.situacao==='buscando'?'selected':''}>🟡 Buscando local</option>
           <option value="local" ${r.situacao==='local'?'selected':''}>🟢 Encontrado local</option>
           <option value="fora" ${r.situacao==='fora'?'selected':''}>🔴 Fora do estado</option>
-          <option value="comprado" ${r.situacao==='comprado'?'selected':''}>✅ Comprado</option>
+          <option value="transporte" ${r.situacao==='transporte'?'selected':''}>🚚 Em transporte</option>
+          <option value="comprado">✅ Marcar como comprado</option>
         </select>
       </td>
       <td><button class="act act-attach ${(r.attachments&&r.attachments.length)?'has-files':''}" onclick="openAttach('manutencao',${i})" title="${(r.attachments&&r.attachments.length)?r.attachments.length+' anexo(s)':'Adicionar anexo'}">
@@ -1444,23 +1535,24 @@ function checkNotifications(){
   });
 
   // Manutenção pendentes (não compradas)
-  const manutHoje=[], manutSemana=[], manutFora=[];
+  const manutHoje=[], manutSemana=[], manutFora=[], manutTransporte=[];
   (data.manutencao||[]).forEach(r=>{
     if(r.situacao==='comprado') return;
     const itensStr=(r.itens||[]).map(i=>i.material+(i.qtd?' ('+i.qtd+')':'')).join(', ');
     const label=`${r.obra} — ${itensStr}${r.valor?' — R$ '+fmtBR(r.valor):''}`;
-    if(r.situacao==='fora') manutFora.push({label, situacao:r.situacao});
+    if(r.situacao==='transporte') manutTransporte.push({label});
+    else if(r.situacao==='fora') manutFora.push({label});
     else if(r.urgencia==='hoje') manutHoje.push({label});
     else if(r.urgencia==='semana') manutSemana.push({label});
   });
 
-  showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, manutFora);
+  showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, manutFora, manutTransporte);
   sendBrowserNotifications(overdue, dueToday, leadCompromised, manutHoje, manutFora);
 }
 
-function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, manutFora){
+function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, manutFora, manutTransporte){
   const banner = document.getElementById('notif-banner');
-  const hasAny = overdue.length||dueToday.length||leadCompromised.length||manutHoje.length||manutSemana.length||manutFora.length;
+  const hasAny = overdue.length||dueToday.length||leadCompromised.length||manutHoje.length||manutSemana.length||manutFora.length||(manutTransporte&&manutTransporte.length);
   if(!hasAny){ banner.style.display='none'; return; }
 
   let html='';
@@ -1536,6 +1628,18 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
         <div style="font-size:11px;color:#7B2D8B;margin:4px 0 8px">Não encontrado localmente — acionar fornecedor externo.</div>
         <div style="margin-top:6px">
           ${manutFora.map(o=>`<div class="notif-item">🔴 ${o.label}</div>`).join('')}
+        </div>
+      </div>
+      <span class="notif-close" onclick="this.parentElement.style.display='none'">✕</span>
+    </div>`;
+  }
+
+  if(manutTransporte&&manutTransporte.length){
+    html+=`<div class="notif-banner" style="background:#E8F4FD;border-left:4px solid #1A5276">
+      <div style="flex:1">
+        <strong>🚚 ${manutTransporte.length} compra${manutTransporte.length>1?'s':''} de manutenção EM TRANSPORTE</strong>
+        <div style="margin-top:6px">
+          ${manutTransporte.map(o=>`<div class="notif-item">🚚 ${o.label}</div>`).join('')}
         </div>
       </div>
       <span class="notif-close" onclick="this.parentElement.style.display='none'">✕</span>
