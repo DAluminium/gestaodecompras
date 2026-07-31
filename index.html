@@ -623,7 +623,7 @@ const INITIAL = {
   ]
 };
 
-let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[]};
+let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[],usuarios:[]};
 let currentTab = 'urgente';
 let editId = null;
 let modalType = 'urgente';
@@ -2061,8 +2061,9 @@ function addUser(){
   if(ADMINS.find(a=>a.user===username)){ alert('Este usuário é reservado para administradores.'); return; }
   const users=getUsers();
   if(users.find(u=>u.username===username)){ alert('Usuário já cadastrado.'); return; }
-  users.push({name,username,password:pass,role,active:true});
+  users.push({name,username,password:pass,role,active:true,tempPass:true});
   saveUsers(users);
+  persist();
   logAction('Ander Reis','Criou usuário',{obra:name,contrato:'Sistema'},`Usuário: ${username} (${role})`);
   ['nu-name','nu-username','nu-pass'].forEach(id=>document.getElementById(id).value='');
   renderUserList();
@@ -2072,6 +2073,7 @@ function toggleUserActive(idx){
   const users=getUsers();
   users[idx].active=users[idx].active===false?true:false;
   saveUsers(users);
+  persist();
   logAction('Ander Reis',users[idx].active?'Ativou usuário':'Desativou usuário',{obra:users[idx].name,contrato:'Sistema'},`Usuário: ${users[idx].username}`);
   renderUserList();
 }
@@ -2082,6 +2084,7 @@ function removeUser(idx){
   logAction('Ander Reis','Removeu usuário',{obra:users[idx].name,contrato:'Sistema'},`Usuário: ${users[idx].username}`);
   users.splice(idx,1);
   saveUsers(users);
+  persist();
   renderUserList();
 }
 
@@ -2091,11 +2094,8 @@ const ADMINS = [
   { user: 'aretusa',     pass: 'Dal321',       name: 'Aretusa Sendeski', tempPass: true  },
 ];
 
-function getUsers(){
-  try{ return JSON.parse(localStorage.getItem('dalum-users')||'[]'); }
-  catch{ return []; }
-}
-function saveUsers(users){ localStorage.setItem('dalum-users',JSON.stringify(users)); }
+function getUsers(){ return data.usuarios||[]; }
+function saveUsers(users){ data.usuarios=users; }
 
 function checkLogin(){
   const logged = sessionStorage.getItem('dalum-logged');
@@ -2172,7 +2172,7 @@ function openChangePassUser(found){
   if(nova.trim()!==conf){ alert('As senhas não coincidem. Tente novamente no próximo login.'); return; }
   const users=getUsers();
   const idx=users.findIndex(u=>u.username===found.username);
-  if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); }
+  if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); persist(); }
   alert('Senha alterada com sucesso! ✅');
 }
 
@@ -2191,7 +2191,7 @@ function changeMyPass(){
     const userName=sessionStorage.getItem('dalum-user')||'';
     const users=getUsers();
     const idx=users.findIndex(u=>u.name===userName);
-    if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); }
+    if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); persist(); }
   }
   alert('Senha alterada com sucesso! ✅');
 }
