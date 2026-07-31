@@ -556,6 +556,50 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
   </div>
 </div>
 
+<!-- MODAL IMPRESSÃO -->
+<div class="modal-overlay" id="print-overlay">
+  <div class="modal" style="width:min(420px,100%)">
+    <div class="modal-header">
+      <div class="modal-title">🖨️ O que deseja imprimir?</div>
+      <button class="act" onclick="closePrintModal()"><svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--gray-2);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="p-capa" checked style="width:16px;height:16px;cursor:pointer">
+          📄 Capa principal (resumo geral + alertas)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--gray-2);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="p-urgentes" checked style="width:16px;height:16px;cursor:pointer">
+          🔴 Subcapa Urgentes (<span id="p-u-count">0</span> orçamentos)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--gray-2);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="p-importantes" checked style="width:16px;height:16px;cursor:pointer">
+          🟡 Subcapa Importantes (<span id="p-i-count">0</span> orçamentos)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--gray-2);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="p-pagas" style="width:16px;height:16px;cursor:pointer">
+          🟢 Subcapa Obras Pagas (<span id="p-p-count">0</span> obras)
+        </label>
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--gray-2);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:500">
+          <input type="checkbox" id="p-manutencao" style="width:16px;height:16px;cursor:pointer">
+          🔧 Manutenção (<span id="p-m-count">0</span> itens)
+        </label>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--gray-4);display:flex;gap:8px">
+        <span style="cursor:pointer;color:var(--teal-dark)" onclick="selectAllPrint(true)">Selecionar tudo</span> ·
+        <span style="cursor:pointer;color:var(--gray-4)" onclick="selectAllPrint(false)">Limpar seleção</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePrintModal()">Cancelar</button>
+      <button class="btn btn-teal" onclick="confirmarImpressao()">
+        <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir
+      </button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="file-input" accept=".json" style="display:none" onchange="handleImport(event)">
 
 <script>
@@ -1015,6 +1059,39 @@ async function removeAttach(idx){
 
 // ---- IMPRIMIR CADERNO ----
 function imprimirCaderno(){
+  // Show counts in modal
+  document.getElementById('p-u-count').textContent=data.urgente.length;
+  document.getElementById('p-i-count').textContent=data.importante.length;
+  document.getElementById('p-p-count').textContent=data.pago.length;
+  document.getElementById('p-m-count').textContent=(data.manutencao||[]).length;
+  document.getElementById('print-overlay').classList.add('open');
+}
+
+function closePrintModal(){ document.getElementById('print-overlay').classList.remove('open'); }
+
+function selectAllPrint(val){
+  ['p-capa','p-urgentes','p-importantes','p-pagas','p-manutencao'].forEach(id=>{
+    document.getElementById(id).checked=val;
+  });
+}
+
+function confirmarImpressao(){
+  const opts={
+    capa:     document.getElementById('p-capa').checked,
+    urgentes: document.getElementById('p-urgentes').checked,
+    importantes: document.getElementById('p-importantes').checked,
+    pagas:    document.getElementById('p-pagas').checked,
+    manutencao: document.getElementById('p-manutencao').checked,
+  };
+  if(!opts.capa&&!opts.urgentes&&!opts.importantes&&!opts.pagas&&!opts.manutencao){
+    alert('Selecione pelo menos uma seção para imprimir.');
+    return;
+  }
+  closePrintModal();
+  gerarImpressao(opts);
+}
+
+function gerarImpressao(opts){
   const su=data.urgente.reduce((a,r)=>a+Number(r.valor||0),0);
   const si=data.importante.reduce((a,r)=>a+Number(r.valor||0),0);
   const sp=data.pago.reduce((a,r)=>a+Number(r.valor||0),0);
@@ -1147,7 +1224,7 @@ tbody tr:last-child td{border-bottom:none}
 </head><body>
 
 <!-- CAPA PRINCIPAL -->
-<div class="page">
+${opts.capa?`<div class="page">
   <div class="page-header">
     <div class="page-header-left">
       <h1>DALUMINIUM</h1>
@@ -1189,61 +1266,77 @@ tbody tr:last-child td{border-bottom:none}
     <span>Daluminium · Gestão de Compras</span>
     <span>Capa Principal · ${now}</span>
   </div>
-</div>
+</div>`:''}
 
 <!-- SUBCAPA URGENTES -->
-<div class="page">
+${opts.urgentes?`<div class="page">
   <div class="page-header">
-    <div class="page-header-left">
-      <h1>DALUMINIUM</h1>
-      <p>Gestão de Compras · Emitido em ${now}</p>
-    </div>
+    <div class="page-header-left"><h1>DALUMINIUM</h1><p>Gestão de Compras · Emitido em ${now}</p></div>
     <div class="page-header-right">Atualizado em: _______________<br>Ciclo: _______________________</div>
   </div>
   <div class="section-title section-urgent"><span>ORÇAMENTOS URGENTES</span><span>${data.urgente.length} obra${data.urgente.length!==1?'s':''}</span></div>
   ${buildTable(data.urgente,false)}
-  <div class="total-bar" style="background:#FDF0EE;color:#C0392B">
-    <strong>TOTAL GERAL — URGENTES</strong>
-    <strong>R$ ${fV(su)}</strong>
-  </div>
+  <div class="total-bar" style="background:#FDF0EE;color:#C0392B"><strong>TOTAL GERAL — URGENTES</strong><strong>R$ ${fV(su)}</strong></div>
   <div class="footer"><span>Daluminium · Gestão de Compras</span><span>Subcapa Urgentes · ${now}</span></div>
-</div>
+</div>`:''}
 
 <!-- SUBCAPA IMPORTANTES -->
-<div class="page">
+${opts.importantes?`<div class="page">
   <div class="page-header">
-    <div class="page-header-left">
-      <h1>DALUMINIUM</h1>
-      <p>Gestão de Compras · Emitido em ${now}</p>
-    </div>
+    <div class="page-header-left"><h1>DALUMINIUM</h1><p>Gestão de Compras · Emitido em ${now}</p></div>
     <div class="page-header-right">Atualizado em: _______________<br>Ciclo: _______________________</div>
   </div>
   <div class="section-title section-important"><span>ORÇAMENTOS IMPORTANTES</span><span>${data.importante.length} obra${data.importante.length!==1?'s':''}</span></div>
   ${buildTable(data.importante,false)}
-  <div class="total-bar" style="background:#FEF7E6;color:#B9770E">
-    <strong>TOTAL GERAL — IMPORTANTES</strong>
-    <strong>R$ ${fV(si)}</strong>
-  </div>
+  <div class="total-bar" style="background:#FEF7E6;color:#B9770E"><strong>TOTAL GERAL — IMPORTANTES</strong><strong>R$ ${fV(si)}</strong></div>
   <div class="footer"><span>Daluminium · Gestão de Compras</span><span>Subcapa Importantes · ${now}</span></div>
-</div>
+</div>`:''}
 
 <!-- SUBCAPA PAGAS -->
-<div class="page">
+${opts.pagas?`<div class="page">
   <div class="page-header">
-    <div class="page-header-left">
-      <h1>DALUMINIUM</h1>
-      <p>Gestão de Compras · Emitido em ${now}</p>
-    </div>
+    <div class="page-header-left"><h1>DALUMINIUM</h1><p>Gestão de Compras · Emitido em ${now}</p></div>
     <div class="page-header-right">Atualizado em: _______________<br>Ciclo: _______________________</div>
   </div>
   <div class="section-title section-paid"><span>OBRAS PAGAS</span><span>${data.pago.length} obra${data.pago.length!==1?'s':''}</span></div>
   ${buildTable(data.pago,true)}
-  <div class="total-bar" style="background:#EDFAF3;color:#1A7A45">
-    <strong>TOTAL GERAL — PAGAS</strong>
-    <strong>R$ ${fV(sp)}</strong>
-  </div>
+  <div class="total-bar" style="background:#EDFAF3;color:#1A7A45"><strong>TOTAL GERAL — PAGAS</strong><strong>R$ ${fV(sp)}</strong></div>
   <div class="footer"><span>Daluminium · Gestão de Compras</span><span>Subcapa Pagas · ${now}</span></div>
-</div>
+</div>`:''}
+
+<!-- MANUTENÇÃO -->
+${opts.manutencao&&(data.manutencao||[]).length?`<div class="page">
+  <div class="page-header">
+    <div class="page-header-left"><h1>DALUMINIUM</h1><p>Gestão de Compras · Emitido em ${now}</p></div>
+    <div class="page-header-right">Atualizado em: _______________<br>Ciclo: _______________________</div>
+  </div>
+  <div class="section-title" style="background:#F3E8FF;color:#7B2D8B;border-left:4px solid #7B2D8B"><span>🔧 MANUTENÇÃO</span><span>${(data.manutencao||[]).length} item${(data.manutencao||[]).length!==1?'ns':''}</span></div>
+  <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px">
+    <thead><tr>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">#</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Obra / Local</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Materiais</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Fornecedor</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Total</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Urgência</th>
+      <th style="padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;color:#9AA1AB;border-bottom:1px solid #DEE1E5;background:#F7F8F9">Situação</th>
+    </tr></thead>
+    <tbody>${(data.manutencao||[]).map((r,i)=>{
+      const itens=(r.itens||[]).map(it=>it.material+(it.qtd?' ('+it.qtd+')':'')).join(', ');
+      const urgLabel={hoje:'🔴 Hoje',semana:'🟡 Esta semana','sem-urgencia':'🟢 Sem urgência'}[r.urgencia||'hoje'];
+      const sitLabel={buscando:'🟡 Buscando local',local:'🟢 Encontrado local',fora:'🔴 Fora do estado',transporte:'🚚 Transporte',comprado:'✅ Comprado'}[r.situacao||'buscando'];
+      return`<tr><td style="padding:6px 8px;border-bottom:1px solid #EEF0F2;color:#9AA1AB">${i+1}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2;font-weight:700">${r.obra}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2">${itens||'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2">${r.fornecedor||'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2;font-weight:700">${r.valor?'R$ '+fV(r.valor):'—'}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2">${urgLabel}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #EEF0F2">${sitLabel}</td>
+      </tr>`;}).join('')}
+    </tbody>
+  </table>
+  <div class="footer"><span>Daluminium · Gestão de Compras</span><span>Manutenção · ${now}</span></div>
+</div>`:''}
 
 <script>window.onload=function(){window.print()}<\/script>
 </body></html>`;
@@ -2124,7 +2217,8 @@ document.getElementById('modal-overlay').addEventListener('click',function(e){ i
 document.getElementById('attach-overlay').addEventListener('click',function(e){ if(e.target===this) closeAttach(); });
 document.getElementById('setup-overlay').addEventListener('click',function(e){ if(e.target===this) closeSetup(); });
 document.getElementById('user-admin-overlay').addEventListener('click',function(e){ if(e.target===this) closeUserAdmin(); });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeModal(); closeAttach(); closeSetup(); closeModalManut(); closeUserAdmin(); } });
+document.getElementById('print-overlay').addEventListener('click',function(e){ if(e.target===this) closePrintModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeModal(); closeAttach(); closeSetup(); closeModalManut(); closeUserAdmin(); closePrintModal(); } });
 
 // Verifica login ao iniciar
 if(sessionStorage.getItem('dalum-logged')==='true'){
