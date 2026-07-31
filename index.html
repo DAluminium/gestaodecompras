@@ -175,10 +175,6 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
     <button class="btn btn-ghost btn-sm" onclick="imprimirCaderno()">
       <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir caderno
     </button>
-    <button class="btn btn-ghost btn-sm" onclick="openSetup()" title="Configurar sincronização">
-      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-      Sincronizar
-    </button>
     <button class="btn btn-ghost btn-sm" onclick="importData()">
       <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar
     </button>
@@ -1751,10 +1747,15 @@ async function sendBrowserNotifications(overdue, dueToday, leadCompromised, manu
 
 // ---- JSONBIN SYNC ----
 const BIN_API = 'https://api.jsonbin.io/v3/b';
+const AUTO_API_KEY = '$2a$10$qNzq0CuT5x/WTpaVrTxaw.sY19M0txIKTyqSStOtIiUs7QfVIFIoy';
+const AUTO_BIN_ID  = '6a513a05da38895dfe4ca117';
 let syncInterval = null;
 let isSyncing = false;
 
-function getCfg(){ try{ return JSON.parse(localStorage.getItem('dalum-cfg')||'null'); }catch{ return null; } }
+function getCfg(){
+  // Always use embedded config — no manual setup needed
+  return { apiKey: AUTO_API_KEY, binId: AUTO_BIN_ID };
+}
 function saveCfg(cfg){ localStorage.setItem('dalum-cfg',JSON.stringify(cfg)); }
 
 function setStatus(msg, color='rgba(255,255,255,0.8)'){
@@ -1835,12 +1836,10 @@ async function load(){
   reclassifyAll();
   render();
   checkNotifications();
-  if(cfg){
-    await syncFromCloud();
-    startAutoSync();
-  } else {
-    setStatus('⚙️ Clique em Sincronizar para conectar a equipe','rgba(255,255,255,0.7)');
-  }
+  // Always sync automatically — config is embedded
+  await syncFromCloud();
+  startAutoSync();
+  setStatus('🟢 Sincronizado · '+new Date().toLocaleTimeString('pt-BR'));
 }
 
 // ---- SETUP MODAL ----
