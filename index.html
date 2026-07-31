@@ -2109,13 +2109,14 @@ function getAdminPass(adminUser){
   return saved[adminUser]||null;
 }
 
-function doLogin(){
+async function doLogin(){
   const user = document.getElementById('login-user').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
   errEl.style.display='none';
+  document.querySelector('.login-btn').textContent='Verificando...';
 
-  // Check admins
+  // Check admins first (no cloud needed)
   const admin = ADMINS.find(a=>a.user===user);
   if(admin){
     const savedPass=getAdminPass(admin.user);
@@ -2130,12 +2131,14 @@ function doLogin(){
       document.getElementById('login-screen').classList.remove('active');
       showAdminBtn(true);
       if(isTempPass) setTimeout(()=>openChangePassAdmin(admin),500);
+      document.querySelector('.login-btn').textContent='Entrar';
       load();
       return;
     }
   }
 
-  // Check regular users from storage
+  // For regular users — load from cloud first so data.usuarios is populated
+  await loadUsersFromCloud();
   const users=getUsers();
   const found=users.find(u=>u.username.toLowerCase()===user && u.password===pass && u.active!==false);
   if(found){
@@ -2146,12 +2149,23 @@ function doLogin(){
     document.getElementById('login-screen').classList.remove('active');
     showAdminBtn(false);
     if(found.tempPass) setTimeout(()=>openChangePassUser(found),500);
+    document.querySelector('.login-btn').textContent='Entrar';
     load();
   } else {
     errEl.style.display='block';
     document.getElementById('login-pass').value='';
     document.getElementById('login-pass').focus();
+    document.querySelector('.login-btn').textContent='Entrar';
   }
+}
+
+async function loadUsersFromCloud(){
+  try{
+    const cfg=getCfg();
+    if(!cfg||!cfg.binId) return;
+    const remote=await fetchBin(cfg.apiKey, cfg.binId);
+    if(remote&&remote.usuarios) data.usuarios=remote.usuarios;
+  }catch(e){ console.warn('Erro ao carregar usuários:', e); }
 }
 
 function openChangePassAdmin(admin){
