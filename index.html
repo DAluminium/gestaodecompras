@@ -2042,7 +2042,7 @@ function renderUserList(){
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--gray-1);border-radius:var(--radius);border:1px solid var(--gray-2);margin-bottom:6px">
       <div style="flex:1">
         <div style="font-weight:600;font-size:13px">${u.name} <span style="font-size:11px;color:var(--gray-4)">(${u.username})</span></div>
-        <div style="font-size:11px;color:var(--gray-4)">${roleLabel[u.role]||u.role} · Senha: ${u.password}</div>
+        <div style="font-size:11px;color:var(--gray-4)">${roleLabel[u.role]||u.role} · Senha: ••••••••</div>
       </div>
       <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;${u.active!==false?'background:#EDFAF3;color:#1A7A45':'background:var(--gray-2);color:var(--gray-4)'}">${u.active!==false?'Ativo':'Inativo'}</span>
       <button class="act act-edit" onclick="editUser(${i})" title="Editar"><svg class="icon" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -2065,7 +2065,7 @@ async function editUser(idx){
   const users=getUsers();
   users[idx].name=novoNome.trim()||u.name;
   users[idx].role=novoRole.toLowerCase().trim();
-  if(novaSenha&&novaSenha.trim().length>=6){ users[idx].password=novaSenha.trim(); users[idx].tempPass=false; }
+  if(novaSenha&&novaSenha.trim().length>=6){ users[idx].password=await hashSenha(novaSenha.trim()); users[idx].tempPass=false; }
   saveUsers(users);
   await persist();
   renderUserList();
@@ -2081,7 +2081,8 @@ async function addUser(){
   if(ADMINS.find(a=>a.user===username)){ alert('Este usuário é reservado para administradores.'); return; }
   const users=getUsers();
   if(users.find(u=>u.username===username)){ alert('Usuário já cadastrado.'); return; }
-  users.push({name,username,password:pass,role,active:true,tempPass:true});
+  const passHash=await hashSenha(pass);
+  users.push({name,username,password:passHash,role,active:true,tempPass:true});
   saveUsers(users);
   await persist();
   logAction('Ander Reis','Criou usuário',{obra:name,contrato:'Sistema'},`Usuário: ${username} (${role})`);
@@ -2107,6 +2108,48 @@ async function removeUser(idx){
   saveUsers(users);
   await persist();
   renderUserList();
+}
+
+// ---- SEGURANÇA ----
+// SHA-256 hash para senhas
+async function hashSenha(senha){
+  const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(senha));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Controle de tentativas de login
+const MAX_TENTATIVAS=5, BLOQUEIO_MS=5*60*1000; // 5 min
+function getTentativas(){ try{ return JSON.parse(localStorage.getItem('dalum-login-tries')||'{"count":0,"ts":0}'); }catch{ return {count:0,ts:0}; } }
+function setTentativas(obj){ localStorage.setItem('dalum-login-tries',JSON.stringify(obj)); }
+function resetTentativas(){ localStorage.removeItem('dalum-login-tries'); }
+function verificarBloqueio(){
+  const t=getTentativas();
+  if(t.count>=MAX_TENTATIVAS){
+    const restante=Math.ceil((BLOQUEIO_MS-(Date.now()-t.ts))/1000/60);
+    if(restante>0) return `Acesso bloqueado. Tente novamente em ${restante} minuto${restante>1?'s':''}.`;
+    resetTentativas();
+  }
+  return null;
+}
+function registrarFalha(){
+  const t=getTentativas();
+  const agora=Date.now();
+  if(agora-t.ts>BLOQUEIO_MS){ t.count=1; t.ts=agora; }
+  else t.count++;
+  t.ts=agora;
+  setTentativas(t);
+  return MAX_TENTATIVAS-t.count;
+}
+
+// Migrar senha em texto para hash (compatibilidade)
+async function verificarSenha(senhaDigitada, senhaArmazenada){
+  if(!senhaArmazenada) return false;
+  // Se já é hash (64 chars hex), compara direto
+  if(/^[a-f0-9]{64}$/.test(senhaArmazenada)){
+    return (await hashSenha(senhaDigitada))===senhaArmazenada;
+  }
+  // Senha em texto puro (legado) — compara direto
+  return senhaDigitada===senhaArmazenada;
 }
 
 // ---- LOGIN ----
@@ -2135,15 +2178,20 @@ async function doLogin(){
   const pass = document.getElementById('login-pass').value;
   const errEl = document.getElementById('login-error');
   errEl.style.display='none';
+
+  const bloqueio=verificarBloqueio();
+  if(bloqueio){ errEl.textContent=bloqueio; errEl.style.display='block'; return; }
+
   document.querySelector('.login-btn').textContent='Verificando...';
 
-  // Check admins first (no cloud needed)
   const admin = ADMINS.find(a=>a.user===user);
   if(admin){
     const savedPass=getAdminPass(admin.user);
     const correctPass=savedPass||admin.pass;
     const isTempPass=!savedPass&&admin.tempPass;
-    if(correctPass===pass){
+    const ok=await verificarSenha(pass, correctPass);
+    if(ok){
+      resetTentativas();
       sessionStorage.setItem('dalum-logged','true');
       sessionStorage.setItem('dalum-user', admin.name);
       sessionStorage.setItem('dalum-user-role','admin');
@@ -2151,6 +2199,7 @@ async function doLogin(){
       lastBy=admin.name;
       document.getElementById('login-screen').classList.remove('active');
       showAdminBtn(true);
+      updateSaldosBtn();
       if(isTempPass) setTimeout(()=>openChangePassAdmin(admin),500);
       document.querySelector('.login-btn').textContent='Entrar';
       load();
@@ -2158,21 +2207,31 @@ async function doLogin(){
     }
   }
 
-  // For regular users — load from cloud first so data.usuarios is populated
   await loadUsersFromCloud();
   const users=getUsers();
-  const found=users.find(u=>u.username.toLowerCase()===user && u.password===pass && u.active!==false);
+  let found=null;
+  for(const u of users){
+    if(u.username.toLowerCase()===user && u.active!==false){
+      if(await verificarSenha(pass, u.password)){ found=u; break; }
+    }
+  }
   if(found){
+    resetTentativas();
     sessionStorage.setItem('dalum-logged','true');
     sessionStorage.setItem('dalum-user', found.name);
     sessionStorage.setItem('dalum-user-role', found.role==='gerente'?'gerente':'user');
     lastBy=found.name;
     document.getElementById('login-screen').classList.remove('active');
     showAdminBtn(false);
+    updateSaldosBtn();
     if(found.tempPass) setTimeout(()=>openChangePassUser(found),500);
     document.querySelector('.login-btn').textContent='Entrar';
     load();
   } else {
+    const restante=registrarFalha();
+    errEl.textContent=restante>0
+      ? `Usuário ou senha incorretos. ${restante} tentativa${restante>1?'s':''} restante${restante>1?'s':''}.`
+      : 'Acesso bloqueado por 5 minutos.';
     errEl.style.display='block';
     document.getElementById('login-pass').value='';
     document.getElementById('login-pass').focus();
@@ -2195,8 +2254,7 @@ function openChangePassAdmin(admin){
   const conf=prompt('Confirme a nova senha:','');
   if(nova.trim()!==conf){ alert('As senhas não coincidem. Tente novamente no próximo login.'); return; }
   const saved=JSON.parse(localStorage.getItem('dalum-admin-passes')||'{}');
-  saved[admin.user]=nova.trim();
-  localStorage.setItem('dalum-admin-passes', JSON.stringify(saved));
+  hashSenha(nova.trim()).then(h=>{ saved[admin.user]=h; localStorage.setItem('dalum-admin-passes', JSON.stringify(saved)); });
   alert('Senha alterada com sucesso! ✅');
 }
 
@@ -2207,7 +2265,7 @@ function openChangePassUser(found){
   if(nova.trim()!==conf){ alert('As senhas não coincidem. Tente novamente no próximo login.'); return; }
   const users=getUsers();
   const idx=users.findIndex(u=>u.username===found.username);
-  if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); persist(); }
+  if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persist(); }); }
   alert('Senha alterada com sucesso! ✅');
 }
 
@@ -2226,7 +2284,7 @@ function changeMyPass(){
     const userName=sessionStorage.getItem('dalum-user')||'';
     const users=getUsers();
     const idx=users.findIndex(u=>u.name===userName);
-    if(idx>=0){ users[idx].password=nova.trim(); users[idx].tempPass=false; saveUsers(users); persist(); }
+    if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persist(); }); }
   }
   alert('Senha alterada com sucesso! ✅');
 }
