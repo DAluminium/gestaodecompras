@@ -2266,7 +2266,6 @@ async function loadUsersFromCloud(){
     if(remote&&remote.usuarios) data.usuarios=remote.usuarios;
   }catch(e){ console.warn('Erro ao carregar usuários:', e); }
 }
-}
 
 function openChangePassAdmin(admin){
   const nova=prompt('Bem-vinda(o), '+admin.name+'!\n\nVocê está usando uma senha temporária.\nDigite sua nova senha (mínimo 6 caracteres):', '');
