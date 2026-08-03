@@ -1903,12 +1903,21 @@ async function syncFromCloud(){
   isSyncing=false;
 }
 
+// Salva apenas usuarios na nuvem (sem depender do dataReady)
+async function persistUsers(){
+  localStorage.setItem('dalum-data',JSON.stringify(data));
+  const cfg=getCfg();
+  if(!cfg) return;
+  try{
+    await pushBin(cfg.apiKey, cfg.binId, data);
+  }catch(e){ console.warn('Erro ao salvar usuários:', e); }
+}
+
 async function persist(){
   if(!dataReady) return; // Nunca salva antes de carregar da nuvem
-  // Nunca salva se todos os arrays estiverem vazios (proteção extra)
   const totalItems=(data.urgente||[]).length+(data.importante||[]).length+(data.pago||[]).length+(data.manutencao||[]).length+(data.historico||[]).length+(data.usuarios||[]).length;
   const hasSaldo=Object.values(data.saldosIniciais||{}).some(v=>v>0);
-  if(totalItems===0&&!hasSaldo&&!dataReady) return;
+  if(totalItems===0&&!hasSaldo) return;
   localStorage.setItem('dalum-data',JSON.stringify(data));
   const cfg=getCfg();
   if(!cfg){ return; }
@@ -2074,7 +2083,7 @@ async function editUser(idx){
   users[idx].role=novoRole.toLowerCase().trim();
   if(novaSenha&&novaSenha.trim().length>=6){ users[idx].password=await hashSenha(novaSenha.trim()); users[idx].tempPass=false; }
   saveUsers(users);
-  await persist();
+  await persistUsers();
   renderUserList();
   alert('Usuário atualizado com sucesso! ✅');
 }
@@ -2091,7 +2100,7 @@ async function addUser(){
   const passHash=await hashSenha(pass);
   users.push({name,username,password:passHash,role,active:true,tempPass:true});
   saveUsers(users);
-  await persist();
+  await persistUsers();
   logAction('Ander Reis','Criou usuário',{obra:name,contrato:'Sistema'},`Usuário: ${username} (${role})`);
   ['nu-name','nu-username','nu-pass'].forEach(id=>document.getElementById(id).value='');
   renderUserList();
@@ -2102,7 +2111,7 @@ async function toggleUserActive(idx){
   const users=getUsers();
   users[idx].active=users[idx].active===false?true:false;
   saveUsers(users);
-  await persist();
+  await persistUsers();
   logAction('Ander Reis',users[idx].active?'Ativou usuário':'Desativou usuário',{obra:users[idx].name,contrato:'Sistema'},`Usuário: ${users[idx].username}`);
   renderUserList();
 }
@@ -2113,7 +2122,7 @@ async function removeUser(idx){
   logAction('Ander Reis','Removeu usuário',{obra:users[idx].name,contrato:'Sistema'},`Usuário: ${users[idx].username}`);
   users.splice(idx,1);
   saveUsers(users);
-  await persist();
+  await persistUsers();
   renderUserList();
 }
 
@@ -2272,7 +2281,7 @@ function openChangePassUser(found){
   if(nova.trim()!==conf){ alert('As senhas não coincidem. Tente novamente no próximo login.'); return; }
   const users=getUsers();
   const idx=users.findIndex(u=>u.username===found.username);
-  if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persist(); }); }
+  if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persistUsers(); }); }
   alert('Senha alterada com sucesso! ✅');
 }
 
@@ -2291,7 +2300,7 @@ function changeMyPass(){
     const userName=sessionStorage.getItem('dalum-user')||'';
     const users=getUsers();
     const idx=users.findIndex(u=>u.name===userName);
-    if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persist(); }); }
+    if(idx>=0){ hashSenha(nova.trim()).then(h=>{ users[idx].password=h; users[idx].tempPass=false; saveUsers(users); persistUsers(); }); }
   }
   alert('Senha alterada com sucesso! ✅');
 }
