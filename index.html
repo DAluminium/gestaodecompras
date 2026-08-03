@@ -624,6 +624,7 @@ const INITIAL = {
 };
 
 let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[],usuarios:[]};
+let dataReady=false;
 let currentTab = 'urgente';
 let editId = null;
 let modalType = 'urgente';
@@ -1891,6 +1892,7 @@ async function syncFromCloud(){
     const remote=await fetchBin(cfg.apiKey,cfg.binId);
     localStorage.setItem('dalum-data',JSON.stringify(remote));
     data=remote;
+    dataReady=true;
     reclassifyAll();
     render();
     checkNotifications();
@@ -1902,6 +1904,11 @@ async function syncFromCloud(){
 }
 
 async function persist(){
+  if(!dataReady) return; // Nunca salva antes de carregar da nuvem
+  // Nunca salva se todos os arrays estiverem vazios (proteção extra)
+  const totalItems=(data.urgente||[]).length+(data.importante||[]).length+(data.pago||[]).length+(data.manutencao||[]).length+(data.historico||[]).length+(data.usuarios||[]).length;
+  const hasSaldo=Object.values(data.saldosIniciais||{}).some(v=>v>0);
+  if(totalItems===0&&!hasSaldo&&!dataReady) return;
   localStorage.setItem('dalum-data',JSON.stringify(data));
   const cfg=getCfg();
   if(!cfg){ return; }
