@@ -1840,17 +1840,14 @@ async function sendBrowserNotifications(overdue, dueToday, leadCompromised, manu
 }
 
 // ---- JSONBIN SYNC ----
-const BIN_API = 'https://api.jsonbin.io/v3/b';
-const AUTO_API_KEY = '$2a$10$qNzq0CuT5x/WTpaVrTxaw.sY19M0txIKTyqSStOtIiUs7QfVIFIoy';
-const AUTO_BIN_ID  = '6a513a05da38895dfe4ca117';
+const SUPA_URL='https://jirtkaarlnkwasorbita.supabase.co';
+const SUPA_KEY='sb_publishable_D50BtCRtBblorV3j1_Z68A_S2T8goU8';
+const SUPA_SISTEMA='compras';
 let syncInterval = null;
 let isSyncing = false;
 
-function getCfg(){
-  // Always use embedded config — no manual setup needed
-  return { apiKey: AUTO_API_KEY, binId: AUTO_BIN_ID };
-}
-function saveCfg(cfg){ localStorage.setItem('dalum-cfg',JSON.stringify(cfg)); }
+function getCfg(){ return {apiKey:SUPA_KEY,binId:SUPA_SISTEMA}; }
+function saveCfg(cfg){}
 
 function setStatus(msg, color='rgba(255,255,255,0.8)'){
   const el=document.getElementById('sync-status');
@@ -1858,16 +1855,19 @@ function setStatus(msg, color='rgba(255,255,255,0.8)'){
 }
 
 async function fetchBin(apiKey, binId){
-  const r=await fetch(`${BIN_API}/${binId}/latest`,{headers:{'X-Master-Key':apiKey,'X-Bin-Meta':'false'}});
-  if(!r.ok) throw new Error('Erro ao buscar dados: '+r.status);
-  return await r.json();
+  const r=await fetch(SUPA_URL+'/rest/v1/app_data?id=eq.'+SUPA_SISTEMA+'&select=data',{
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+  });
+  if(!r.ok) throw new Error('Erro Supabase: '+r.status);
+  const rows=await r.json();
+  return rows[0]?.data||null;
 }
 
 async function pushBin(apiKey, binId, payload){
-  const r=await fetch(`${BIN_API}/${binId}`,{
-    method:'PUT',
-    headers:{'Content-Type':'application/json','X-Master-Key':apiKey},
-    body:JSON.stringify(payload)
+  const r=await fetch(SUPA_URL+'/rest/v1/app_data?id=eq.'+SUPA_SISTEMA,{
+    method:'PATCH',
+    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    body:JSON.stringify({data:payload,updated_at:new Date().toISOString()})
   });
   if(!r.ok) throw new Error('Erro ao salvar: '+r.status);
 }
@@ -1909,7 +1909,7 @@ async function persistUsers(){
   const cfg=getCfg();
   if(!cfg) return;
   try{
-    await pushBin(cfg.apiKey, cfg.binId, data);
+    await pushBin(SUPA_KEY, SUPA_SISTEMA, data);
   }catch(e){ console.warn('Erro ao salvar usuários:', e); }
 }
 
@@ -2257,11 +2257,15 @@ async function doLogin(){
 
 async function loadUsersFromCloud(){
   try{
-    const cfg=getCfg();
-    if(!cfg||!cfg.binId) return;
-    const remote=await fetchBin(cfg.apiKey, cfg.binId);
+    const r=await fetch(SUPA_URL+'/rest/v1/app_data?id=eq.'+SUPA_SISTEMA+'&select=data',{
+      headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+    });
+    if(!r.ok) return;
+    const rows=await r.json();
+    const remote=rows[0]?.data;
     if(remote&&remote.usuarios) data.usuarios=remote.usuarios;
   }catch(e){ console.warn('Erro ao carregar usuários:', e); }
+}
 }
 
 function openChangePassAdmin(admin){
