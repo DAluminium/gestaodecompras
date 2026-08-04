@@ -2366,6 +2366,9 @@ function checkSSO(){
 }
 
 function addPortalBackBtn(){
+  // Não mostrar se usuário tem só 1 módulo
+  const _sso=JSON.parse(localStorage.getItem('dalum-sso')||'null');
+  if(!_sso||(_sso.modulos||[]).length<=1) return;
   if(document.getElementById('portal-back-btn')) return;
   const btn=document.createElement('button');
   btn.id='portal-back-btn';
