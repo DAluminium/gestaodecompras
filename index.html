@@ -2333,9 +2333,12 @@ function doLogout(){
   sessionStorage.removeItem('dalum-logged');
   sessionStorage.removeItem('dalum-user');
   sessionStorage.removeItem('dalum-user-role');
-  document.getElementById('login-screen').classList.add('active');
-  document.getElementById('login-user').value='';
-  document.getElementById('login-pass').value='';
+  localStorage.removeItem('dalum-sso');
+  if(window.self!==window.top){
+    window.parent.postMessage('logout','*');
+  } else {
+    window.location.href='https://daluminium.github.io/portal/';
+  }
 }
 
 
@@ -2356,7 +2359,8 @@ function checkSSO(){
     // Adicionar botão voltar ao portal
     // Só mostra botão voltar se tiver mais de 1 módulo
     const ssoCheck=JSON.parse(localStorage.getItem('dalum-sso')||'null');
-    if(ssoCheck&&(ssoCheck.modulos||[]).length>1) addPortalBackBtn();
+    const inIframe=window.self!==window.top;
+    if(inIframe&&ssoCheck&&(ssoCheck.modulos||[]).length>1) addPortalBackBtn();
     return true;
   }catch(e){ return false; }
 }
