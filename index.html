@@ -2016,7 +2016,7 @@ async function load(){
   checkNotifications();
   // Always sync automatically — config is embedded
   await syncFromCloud();
-  startAutoSync();
+  startAutoSync(); startUpdateCheck();
   setStatus('🟢 Sincronizado · '+new Date().toLocaleTimeString('pt-BR'));
 }
 
@@ -2045,7 +2045,7 @@ async function criarEspaco(){
     const code='DALUM-'+btoa(apiKey).replace(/=/g,'')+'-'+binId;
     document.getElementById('team-code-display').textContent=code;
     showStep('sucesso');
-    startAutoSync();
+    startAutoSync(); startUpdateCheck();
     setStatus('🟢 Conectado');
   }catch(e){
     erroEl.textContent='Erro: '+e.message+'. Verifique a Master Key.';
@@ -2214,6 +2214,48 @@ async function removeUser(idx){
   }
 })();
 
+
+// ---- AUTO UPDATE ----
+const REPO_OWNER='DAluminium';
+let _updateCheckInterval=null;
+
+async function checkForUpdates(repo, currentSha){
+  try{
+    const r=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${repo}/commits/main`,{
+      headers:{'Accept':'application/vnd.github.v3+json'},
+      cache:'no-store'
+    });
+    if(!r.ok) return;
+    const d=await r.json();
+    const latestSha=d.sha?.slice(0,12);
+    if(latestSha&&latestSha!==currentSha){
+      console.log('Nova versão detectada:', latestSha);
+      showUpdateBanner();
+    }
+  }catch(e){}
+}
+
+function showUpdateBanner(){
+  // Evitar mostrar múltiplas vezes
+  if(document.getElementById('update-banner')) return;
+  const banner=document.createElement('div');
+  banner.id='update-banner';
+  banner.style.cssText='position:fixed;bottom:20px;right:20px;background:var(--teal-dark);color:white;padding:12px 18px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.25);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:12px;z-index:9999;animation:slideIn .3s ease';
+  banner.innerHTML=`
+    <span>🔄 Nova versão disponível</span>
+    <button onclick="location.reload()" style="background:white;color:var(--teal-dark);border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Atualizar</button>
+    <button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+
+function startUpdateCheck(){
+  if(_updateCheckInterval) return;
+  _updateCheckInterval=setInterval(()=>checkForUpdates('gestaodecompras','d0b4164d797b'),30000);
+  // Primeira verificação após 10 segundos
+  setTimeout(()=>checkForUpdates('gestaodecompras','d0b4164d797b'),10000);
+}
 // ---- SEGURANÇA ----
 // SHA-256 hash para senhas
 async function hashSenha(senha){
