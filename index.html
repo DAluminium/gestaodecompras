@@ -336,6 +336,15 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
           </select>
         </div>
         <div class="form-group"><label>Data de entrega da obra <span style="color:var(--red)">*</span></label><input id="f-entrega" type="date"></div>
+
+        <!-- NOTIFICAÇÃO -->
+        <div class="form-group span2" id="notif-group" style="background:var(--amber-light);border-radius:var(--radius);padding:10px 12px">
+          <label style="color:var(--amber)">📲 Notificar responsável via WhatsApp</label>
+          <select id="f-notificar" style="margin-top:6px;background:white">
+            <option value="">— Sem notificação —</option>
+          </select>
+          <span class="note" style="color:var(--amber);margin-top:4px">Envia mensagem WhatsApp ao responsável pelo próximo passo</span>
+        </div>
         <div class="form-group span2" style="background:var(--teal-light);border-radius:var(--radius);padding:10px 12px">
           <label style="color:var(--teal-dark)">📐 Data de medição <span style="font-weight:400;font-size:11px">(opcional — recalcula entrega automaticamente)</span></label>
           <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:10px;margin-top:6px;align-items:center">
@@ -543,6 +552,14 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
               <option value="gerente">Gerente</option>
               <option value="consulta">Somente consulta</option>
             </select>
+          </div>
+          <div class="form-group span2" style="background:var(--amber-light);border-radius:var(--radius);padding:10px 12px">
+            <label style="color:var(--amber)">📲 WhatsApp para notificações (opcional)</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+              <input id="nu-whatsapp" type="text" placeholder="Ex: 69999999999" style="background:white">
+              <input id="nu-apikey" type="text" placeholder="CallMeBot API Key" style="background:white">
+            </div>
+            <span style="font-size:10px;color:var(--amber);margin-top:4px;display:block">Número com DDD, sem espaços. API Key gerada pelo CallMeBot.</span>
           </div>
         </div>
         <button class="btn btn-teal btn-sm" style="margin-top:10px" onclick="addUser()">
@@ -830,6 +847,8 @@ function openModal(type,idx=null){
     ['f-obra','f-contrato','f-material','f-nrorc','f-fornecedor','f-valor','f-dataorc','f-entrega','f-datapag','f-pix','f-pix-nome','f-banco','f-conta','f-medicao'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-medicao-resultado').textContent='—';
     document.getElementById('f-dias-uteis').value='';
+    popularNotificarSelect();
+    document.getElementById('f-notificar').value='';
     // Auto-fill nome do usuário logado
   const _nomeLogado=sessionStorage.getItem('dalum-user')||lastBy||'';
   document.getElementById('f-by').value=_nomeLogado;
@@ -876,6 +895,24 @@ function saveEntry(){
   logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':'Novo orçamento lançado');
   reclassifyAll();
   persist(); render(); checkNotifications(); closeModal();
+
+  // WhatsApp: notificar responsável apenas em novo lançamento
+  if(!isEdit){
+    const sel=document.getElementById('f-notificar');
+    const idx=sel.value;
+    if(idx!==''){
+      try{
+        const responsaveis=JSON.parse(sel.dataset.responsaveis||'[]');
+        const para=responsaveis[parseInt(idx)];
+        if(para){
+          const tipoLabel=entry.tipo==='especial'?'✦ Especial':'Padrão';
+          const entregaFmt=entry.entrega&&entry.entrega!=='—'?entry.entrega.split('-').reverse().join('/'):'Não definida';
+          const msg=`🏗️ Nova obra lançada - Daluminium\n\nObra: ${entry.obra}\nContrato: ${entry.contrato||'—'}\nEntrega: ${entregaFmt}\nTipo: ${tipoLabel}\nLançado por: ${byVal}\n\nAcesse: https://daluminium.github.io/portal/`;
+          enviarWhatsApp(para, msg);
+        }
+      }catch(e){ console.warn('Erro notificação:', e); }
+    }
+  }
 }
 function editEntry(type,idx){ openModal(type,idx); }
 function removeEntry(type,idx){
@@ -1375,6 +1412,35 @@ function calcEntregaPorMedicao(){
   const iso = novaEntrega.toISOString().slice(0,10);
   resultado.textContent = fmt;
   document.getElementById('f-entrega').value = iso;
+}
+
+// ---- WHATSAPP NOTIFICAÇÃO ----
+async function enviarWhatsApp(para, mensagem){
+  if(!para.whatsapp||!para.apikey) return;
+  const url=`https://api.callmebot.com/whatsapp.php?phone=${para.whatsapp}&text=${encodeURIComponent(mensagem)}&apikey=${para.apikey}`;
+  try{ await fetch(url); }catch(e){ console.warn('WhatsApp erro:', e); }
+}
+
+function getResponsaveis(){
+  const todos=[];
+  // Admins com whatsapp
+  ADMINS.forEach(a=>{ if(a.whatsapp&&a.apikey) todos.push({name:a.name,whatsapp:a.whatsapp,apikey:a.apikey}); });
+  // Usuários cadastrados com whatsapp
+  getUsers().forEach(u=>{ if(u.active!==false&&u.whatsapp&&u.apikey) todos.push({name:u.name,whatsapp:u.whatsapp,apikey:u.apikey}); });
+  return todos;
+}
+
+function popularNotificarSelect(){
+  const sel=document.getElementById('f-notificar');
+  const responsaveis=getResponsaveis();
+  const logado=sessionStorage.getItem('dalum-user')||'';
+  sel.innerHTML='<option value="">— Sem notificação —</option>';
+  responsaveis
+    .filter(r=>r.name!==logado) // não notifica a si mesmo
+    .forEach((r,i)=>{ sel.innerHTML+=`<option value="${i}">${r.name}</option>`; });
+  sel.dataset.responsaveis=JSON.stringify(responsaveis.filter(r=>r.name!==logado));
+  // Mostrar campo só se tiver quem notificar
+  document.getElementById('notif-group').style.display=responsaveis.filter(r=>r.name!==logado).length?'block':'none';
 }
 
 // ---- MANUTENÇÃO ----
@@ -2101,11 +2167,14 @@ async function addUser(){
   const users=getUsers();
   if(users.find(u=>u.username===username)){ alert('Usuário já cadastrado.'); return; }
   const passHash=await hashSenha(pass);
-  users.push({name,username,password:passHash,role,active:true,tempPass:true});
+  users.push({name,username,password:passHash,role,active:true,tempPass:true,
+    whatsapp:document.getElementById('nu-whatsapp').value.trim().replace(/\D/g,''),
+    apikey:document.getElementById('nu-apikey').value.trim()
+  });
   saveUsers(users);
   await persistUsers();
   logAction('Ander Reis','Criou usuário',{obra:name,contrato:'Sistema'},`Usuário: ${username} (${role})`);
-  ['nu-name','nu-username','nu-pass'].forEach(id=>document.getElementById(id).value='');
+  ['nu-name','nu-username','nu-pass','nu-whatsapp','nu-apikey'].forEach(id=>document.getElementById(id).value='');
   renderUserList();
   alert('Usuário cadastrado e salvo na nuvem! ✅');
 }
@@ -2189,8 +2258,8 @@ async function verificarSenha(senhaDigitada, senhaArmazenada){
 
 // ---- LOGIN ----
 const ADMINS = [
-  { user: 'ander reis',  pass: '@nd3r_R3is',  name: 'Ander Reis',      tempPass: false },
-  { user: 'aretusa',     pass: 'Dal321',       name: 'Aretusa Sendeski', tempPass: true  },
+  { user: 'ander reis',  pass: '@nd3r_R3is',  name: 'Ander Reis',       tempPass: false, whatsapp:'', apikey:'' },
+  { user: 'aretusa',     pass: 'Dal321',       name: 'Aretusa Sendeski', tempPass: true,  whatsapp:'', apikey:'' },
 ];
 
 function getUsers(){ return data.usuarios||[]; }
