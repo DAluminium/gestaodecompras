@@ -326,16 +326,16 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="form-group span2"><label>Seu nome</label><input id="f-by" type="text" placeholder="Ex: Ander"><span class="note">Identifica quem lançou este orçamento</span></div>
+        <div class="form-group span2"><label>Seu nome</label><input id="f-by" type="text" readonly style="background:var(--gray-1);color:var(--gray-5);cursor:default"><span class="note">Preenchido automaticamente com o usuário logado</span></div>
         <div class="form-group span2"><label>Obra / Cliente <span style="color:var(--red)">*</span></label><input id="f-obra" type="text" placeholder="Ex: Wanderley — Casa 113"></div>
         <div class="form-group span2"><label>Nº do Contrato <span style="color:var(--red)">*</span></label><input id="f-contrato" type="text" placeholder="Ex: 2026-0045"></div>
-        <div class="form-group"><label>Tipo de projeto</label>
+        <div class="form-group"><label>Tipo de projeto <span style="color:var(--red)">*</span></label>
           <select id="f-tipo">
             <option value="padrao">Padrão — alerta 30 dias antes</option>
             <option value="especial">Especial — alerta 60 dias antes</option>
           </select>
         </div>
-        <div class="form-group"><label>Data de entrega da obra</label><input id="f-entrega" type="date"></div>
+        <div class="form-group"><label>Data de entrega da obra <span style="color:var(--red)">*</span></label><input id="f-entrega" type="date"></div>
         <div class="form-group span2" style="background:var(--teal-light);border-radius:var(--radius);padding:10px 12px">
           <label style="color:var(--teal-dark)">📐 Data de medição <span style="font-weight:400;font-size:11px">(opcional — recalcula entrega automaticamente)</span></label>
           <div style="display:grid;grid-template-columns:1fr 120px 1fr;gap:10px;margin-top:6px;align-items:center">
@@ -806,7 +806,7 @@ function openModal(type,idx=null){
   document.getElementById('status-group').style.display=isPago?'none':'flex';
   if(idx!==null){
     const r=data[type][idx];
-    document.getElementById('f-by').value=r.by||'';
+    document.getElementById('f-by').value=r.by||sessionStorage.getItem('dalum-user')||lastBy||'';
     document.getElementById('f-obra').value=r.obra||'';
     document.getElementById('f-contrato').value=r.contrato||'';
     document.getElementById('f-material').value=r.material||'';
@@ -830,7 +830,10 @@ function openModal(type,idx=null){
     ['f-obra','f-contrato','f-material','f-nrorc','f-fornecedor','f-valor','f-dataorc','f-entrega','f-datapag','f-pix','f-pix-nome','f-banco','f-conta','f-medicao'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('f-medicao-resultado').textContent='—';
     document.getElementById('f-dias-uteis').value='';
-    document.getElementById('f-by').value=lastBy;
+    // Auto-fill nome do usuário logado
+  const _nomeLogado=sessionStorage.getItem('dalum-user')||lastBy||'';
+  document.getElementById('f-by').value=_nomeLogado;
+  lastBy=_nomeLogado;
     document.getElementById('f-status').value='Pendente';
     document.getElementById('f-tipo').value='padrao';
     document.getElementById('modal-title').textContent='Novo orçamento — '+(type==='urgente'?'Urgente':type==='importante'?'Importante':'Pago');
@@ -867,6 +870,7 @@ function saveEntry(){
   };
   if(modalType==='pago') entry.dataPag=document.getElementById('f-datapag').value;
   if(!entry.obra||!entry.contrato){ alert('Obra / Cliente e Nº do Contrato são obrigatórios.'); return; }
+  if(!entry.entrega||entry.entrega==='—'){ alert('Data de entrega da obra é obrigatória.'); document.getElementById('f-entrega').focus(); return; }
   const isEdit = editId!==null;
   if(isEdit){ data[modalType][editId]=entry; } else { data[modalType].push(entry); }
   logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':'Novo orçamento lançado');
