@@ -1869,10 +1869,6 @@ async function pushBin(apiKey, binId, payload){
     body:JSON.stringify({data:payload})
   });
   if(!r.ok) throw new Error('Erro Worker: '+r.status);
-},
-    body:JSON.stringify({data:payload,updated_at:new Date().toISOString()})
-  });
-  if(!r.ok) throw new Error('Erro ao salvar: '+r.status);
 }
 
 async function createBin(apiKey, payload){
