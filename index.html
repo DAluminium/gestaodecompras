@@ -628,6 +628,12 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
 
 <script>
 
+// Restaurar sessão após atualização
+(function(){
+  const saved=localStorage.getItem('dalum-reload-sess');
+  if(saved){ const s=JSON.parse(saved); Object.entries(s).forEach(([k,v])=>sessionStorage.setItem(k,v)); localStorage.removeItem('dalum-reload-sess'); }
+})();
+
 // ---- AUTO UPDATE ----
 const REPO_OWNER='DAluminium';
 let _updateCheckInterval=null;
@@ -700,6 +706,10 @@ function recarregar(){
   const pct=document.getElementById('update-progress-pct');
   fill.style.width='100%';
   pct.textContent='✅ Concluído! Recarregando...';
+  // Preservar sessão no localStorage antes de recarregar
+  const sess={};
+  ['dalum-logged','dalum-user','dalum-user-role','dalum-admin-key'].forEach(k=>{ const v=sessionStorage.getItem(k); if(v) sess[k]=v; });
+  localStorage.setItem('dalum-reload-sess',JSON.stringify(sess));
   setTimeout(()=>location.reload(),600);
 }
 
