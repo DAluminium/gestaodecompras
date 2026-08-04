@@ -2028,7 +2028,7 @@ async function load(){
   checkNotifications();
   // Always sync automatically — config is embedded
   await syncFromCloud();
-  startAutoSync(); startUpdateCheck();
+  startAutoSync();
   setStatus('🟢 Sincronizado · '+new Date().toLocaleTimeString('pt-BR'));
 }
 
@@ -2057,7 +2057,7 @@ async function criarEspaco(){
     const code='DALUM-'+btoa(apiKey).replace(/=/g,'')+'-'+binId;
     document.getElementById('team-code-display').textContent=code;
     showStep('sucesso');
-    startAutoSync(); startUpdateCheck();
+    startAutoSync();
     setStatus('🟢 Conectado');
   }catch(e){
     erroEl.textContent='Erro: '+e.message+'. Verifique a Master Key.';
