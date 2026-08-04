@@ -2354,7 +2354,9 @@ function checkSSO(){
     showAdminBtn(sso.role==='admin');
     updateSaldosBtn();
     // Adicionar botão voltar ao portal
-    addPortalBackBtn();
+    // Só mostra botão voltar se tiver mais de 1 módulo
+    const ssoCheck=JSON.parse(localStorage.getItem('dalum-sso')||'null');
+    if(ssoCheck&&(ssoCheck.modulos||[]).length>1) addPortalBackBtn();
     return true;
   }catch(e){ return false; }
 }
