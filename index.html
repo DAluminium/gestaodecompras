@@ -1855,8 +1855,12 @@ function setStatus(msg, color='rgba(255,255,255,0.8)'){
 }
 
 async function fetchBin(apiKey, binId){
-  const r=await fetch(SUPA_URL+'/rest/v1/app_data?id=eq.'+SUPA_SISTEMA+'&select=data',{
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}
+  const r=await fetch('https://daluminium-api.daluminium2.workers.dev',{
+    headers:{'X-Sistema':SUPA_SISTEMA,'Origin':'https://daluminium.github.io'}
+  });
+  if(!r.ok) throw new Error('Erro Worker: '+r.status);
+  return await r.json();
+}
   });
   if(!r.ok) throw new Error('Erro Supabase: '+r.status);
   const rows=await r.json();
@@ -1864,9 +1868,13 @@ async function fetchBin(apiKey, binId){
 }
 
 async function pushBin(apiKey, binId, payload){
-  const r=await fetch(SUPA_URL+'/rest/v1/app_data?id=eq.'+SUPA_SISTEMA,{
+  const r=await fetch('https://daluminium-api.daluminium2.workers.dev',{
     method:'PATCH',
-    headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+    headers:{'Content-Type':'application/json','X-Sistema':SUPA_SISTEMA,'Origin':'https://daluminium.github.io'},
+    body:JSON.stringify({data:payload})
+  });
+  if(!r.ok) throw new Error('Erro Worker: '+r.status);
+},
     body:JSON.stringify({data:payload,updated_at:new Date().toISOString()})
   });
   if(!r.ok) throw new Error('Erro ao salvar: '+r.status);
