@@ -634,86 +634,6 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
   if(saved){ const s=JSON.parse(saved); Object.entries(s).forEach(([k,v])=>sessionStorage.setItem(k,v)); localStorage.removeItem('dalum-reload-sess'); }
 })();
 
-// ---- AUTO UPDATE ----
-const REPO_OWNER='DAluminium';
-let _updateCheckInterval=null;
-
-async function checkForUpdates(repo, currentSha){
-  try{
-    const r=await fetch(`https://api.github.com/repos/${REPO_OWNER}/${repo}/commits/main`,{
-      headers:{'Accept':'application/vnd.github.v3+json'},
-      cache:'no-store'
-    });
-    if(!r.ok) return;
-    const d=await r.json();
-    const latestSha=d.sha?.slice(0,12);
-    if(latestSha&&latestSha!==currentSha) showUpdateBanner();
-  }catch(e){}
-}
-
-function showUpdateBanner(){
-  if(document.getElementById('update-banner')) return;
-  const banner=document.createElement('div');
-  banner.id='update-banner';
-  banner.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-      <span>🔄 Nova versão disponível</span>
-      <div style="display:flex;gap:6px">
-        <button id="update-btn" onclick="iniciarAtualizacao()" style="background:white;color:var(--teal-dark);border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Atualizar</button>
-        <button onclick="document.getElementById('update-banner').remove()" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
-      </div>
-    </div>
-    <div id="update-progress-bar"><div id="update-progress-fill"></div></div>
-    <div id="update-progress-pct">Baixando atualização... 0%</div>
-  `;
-  document.body.appendChild(banner);
-}
-
-function iniciarAtualizacao(){
-  const btn=document.getElementById('update-btn');
-  const bar=document.getElementById('update-progress-bar');
-  const fill=document.getElementById('update-progress-fill');
-  const pct=document.getElementById('update-progress-pct');
-  btn.disabled=true;
-  btn.textContent='Atualizando...';
-  bar.style.display='block';
-  pct.style.display='block';
-
-  let progress=0;
-  // Simula progresso realista: rápido no início, desacelera no meio, rápido no fim
-  const etapas=[
-    {ate:30, velocidade:80},
-    {ate:60, velocidade:200},
-    {ate:85, velocidade:300},
-    {ate:95, velocidade:500},
-    {ate:100, velocidade:150},
-  ];
-  let etapaIdx=0;
-
-  const avançar=()=>{
-    const etapa=etapas[etapaIdx];
-    if(progress>=etapa.ate){ etapaIdx++; if(etapaIdx>=etapas.length){ recarregar(); return; } }
-    progress=Math.min(progress+1, etapa.ate);
-    fill.style.width=progress+'%';
-    pct.textContent=`Baixando atualização... ${progress}%`;
-    setTimeout(avançar, etapas[etapaIdx]?.velocidade||150);
-  };
-  avançar();
-}
-
-function recarregar(){
-  const fill=document.getElementById('update-progress-fill');
-  const pct=document.getElementById('update-progress-pct');
-  fill.style.width='100%';
-  pct.textContent='✅ Concluído! Recarregando...';
-  // Preservar sessão no localStorage antes de recarregar
-  const sess={};
-  ['dalum-logged','dalum-user','dalum-user-role','dalum-admin-key'].forEach(k=>{ const v=sessionStorage.getItem(k); if(v) sess[k]=v; });
-  localStorage.setItem('dalum-reload-sess',JSON.stringify(sess));
-  setTimeout(()=>location.reload(),600);
-}
-
-
 function startUpdateCheck(){
   if(_updateCheckInterval) return;
   _updateCheckInterval=setInterval(()=>checkForUpdates('gestaodecompras','f4e215604657'),30000);
@@ -2314,6 +2234,71 @@ async function removeUser(idx){
 })();
 
 
+
+// ---- AUTO UPDATE ----
+let _updateCheckInterval=null;
+let _latestSha=null;
+
+async function checkForUpdates(repo, builtSha){
+  try{
+    const storedSha=localStorage.getItem('dalum-sha-'+repo)||builtSha;
+    const r=await fetch(`https://api.github.com/repos/DAluminium/${repo}/commits/main`,{
+      headers:{'Accept':'application/vnd.github.v3+json'},cache:'no-store'
+    });
+    if(!r.ok) return;
+    const d=await r.json();
+    const latestSha=d.sha?.slice(0,12);
+    if(!latestSha) return;
+    // Sempre atualizar o SHA armazenado para o mais recente
+    if(latestSha!==storedSha){
+      _latestSha=latestSha;
+      showUpdateBanner();
+    }
+  }catch(e){}
+}
+
+function showUpdateBanner(){
+  if(document.getElementById('update-banner')) return;
+  const b=document.createElement('div');
+  b.id='update-banner';
+  b.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span>🔄 Nova versão disponível</span><div style="display:flex;gap:6px"><button id="update-btn" onclick="iniciarAtualizacao()" style="background:white;color:var(--teal-dark);border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Atualizar</button><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer">✕</button></div></div><div id="update-progress-bar"><div id="update-progress-fill"></div></div><div id="update-progress-pct"></div>`;
+  document.body.appendChild(b);
+}
+
+function iniciarAtualizacao(){
+  const btn=document.getElementById('update-btn');
+  const bar=document.getElementById('update-progress-bar');
+  const fill=document.getElementById('update-progress-fill');
+  const pct=document.getElementById('update-progress-pct');
+  btn.disabled=true; btn.textContent='Atualizando...';
+  bar.style.display='block'; pct.style.display='block';
+  let p=0;
+  const etapas=[{ate:30,v:80},{ate:60,v:200},{ate:85,v:300},{ate:95,v:500},{ate:100,v:150}];
+  let ei=0;
+  const av=()=>{
+    if(p>=etapas[ei].ate){ ei++; }
+    if(ei>=etapas.length){
+      fill.style.width='100%';
+      pct.textContent='✅ Concluído! Recarregando...';
+      // Salvar novo SHA antes de recarregar para não mostrar banner novamente
+      if(_latestSha) localStorage.setItem('dalum-sha-'+_currentRepo, _latestSha);
+      setTimeout(()=>location.reload(),600);
+      return;
+    }
+    p=Math.min(p+1,etapas[ei].ate);
+    fill.style.width=p+'%'; pct.textContent=`Baixando atualização... ${p}%`;
+    setTimeout(av,etapas[ei]?.v||150);
+  };
+  av();
+}
+
+
+const _currentRepo='gestaodecompras';
+function startUpdateCheck(){
+  if(_updateCheckInterval) return;
+  _updateCheckInterval=setInterval(()=>checkForUpdates('gestaodecompras','e3c488894848'),30000);
+  setTimeout(()=>checkForUpdates('gestaodecompras','e3c488894848'),10000);
+}
 // ---- SEGURANÇA ----
 // SHA-256 hash para senhas
 async function hashSenha(senha){
