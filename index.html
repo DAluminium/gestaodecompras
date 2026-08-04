@@ -170,9 +170,7 @@ svg.icon{width:14px;height:14px;vertical-align:middle;fill:none;stroke:currentCo
   <div class="topbar-logo">DALUMINIUM <span>Gestão de Compras</span></div>
   <div class="topbar-actions">
     <span id="sync-status" style="font-size:12px;display:flex;align-items:center;gap:5px;opacity:.85"></span>
-    <button id="admin-btn" class="btn btn-ghost btn-sm" onclick="openUserAdmin()" style="display:none" title="Gerenciar usuários">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários
-    </button>
+
     <button class="btn btn-ghost btn-sm" onclick="changeMyPass()" title="Alterar minha senha">
       <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Senha
     </button>
@@ -2482,10 +2480,7 @@ function changeMyPass(){
   alert('Senha alterada com sucesso! ✅');
 }
 
-function showAdminBtn(show){
-  const btn=document.getElementById('admin-btn');
-  if(btn) btn.style.display=show?'flex':'none';
-}
+function showAdminBtn(show){} // Gerenciamento centralizado no portal
 function updateSaldosBtn(){} // compras não tem saldo inicial
 
 async function doLogout(){
