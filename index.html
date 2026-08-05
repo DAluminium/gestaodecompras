@@ -2533,6 +2533,8 @@ function checkSSO(){
 }
 
 function addPortalBackBtn(){
+  // Dentro do portal a barra superior ja tem o botao Voltar — nao duplicar
+  try{ if(window.self!==window.top) return; }catch(e){ return; }
   // Não mostrar se usuário tem só 1 módulo
   const _sso=JSON.parse(localStorage.getItem('dalum-sso')||'null');
   if(!_sso||(_sso.modulos||[]).length<=1) return;
