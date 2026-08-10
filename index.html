@@ -116,6 +116,10 @@ input[type=text]:focus,input[type=date]:focus,select:focus{outline:none;border-c
 .notif-item:last-child{border-bottom:none}
 .notif-close{margin-left:auto;cursor:pointer;opacity:0.6;font-size:16px;flex-shrink:0;padding:0 4px}
 .notif-close:hover{opacity:1}
+.notif-resumo{padding:10px 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;cursor:pointer;user-select:none}
+.notif-resumo:hover{filter:brightness(0.97)}
+.notif-resumo-acao{font-size:12px;font-weight:600;opacity:.85;white-space:nowrap;flex-shrink:0}
+.notif-detalhes{max-height:65vh;overflow-y:auto}
 .badge-padrao{background:#E6F8FB;color:#0E8FA6;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;white-space:nowrap}
 .badge-especial{background:#F3E8FF;color:#7B2D8B;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;white-space:nowrap}
 .login-screen{display:none;position:fixed;inset:0;background:var(--teal-dark);z-index:9999;align-items:center;justify-content:center;flex-direction:column}
@@ -330,6 +334,28 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
 </div>
 
 <!-- MODAL ORÇAMENTO -->
+<!-- ALTERACAO SIMULTANEA -->
+<div class="modal-overlay" id="conc-overlay">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Duas pessoas alteraram ao mesmo tempo</div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--gray-5);line-height:1.55;margin-bottom:14px">
+        Enquanto você trabalhava, outra pessoa gravou alterações. Veja o que cada
+        um fez e escolha como salvar.
+      </p>
+      <div id="conc-deles"></div>
+      <div id="conc-meu"></div>
+    </div>
+    <div class="modal-footer" style="flex-direction:column;gap:8px;align-items:stretch">
+      <button class="btn btn-teal" id="conc-btn-juntar" style="width:100%">Salvar os dois</button>
+      <button class="btn btn-outline" id="conc-btn-meu" style="width:100%">Gravar só o meu (apaga o da outra pessoa)</button>
+      <button class="btn btn-outline" id="conc-btn-descartar" style="width:100%">Descartar o meu e carregar o dela</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-header">
@@ -916,6 +942,21 @@ function saveEntry(){
   if(!entry.obra||!entry.contrato){ alert('Obra / Cliente e Nº do Contrato são obrigatórios.'); return; }
   if(!entry.entrega||entry.entrega==='—'){ alert('Data de entrega da obra é obrigatória.'); document.getElementById('f-entrega').focus(); return; }
   const isEdit = editId!==null;
+  // Identificador proprio do registro. E o que permite saber, mais tarde, que
+  // duas versoes sao do MESMO lancamento — sem ele a juncao nao consegue
+  // distinguir uma edicao de uma inclusao. Ao editar, o id existente e
+  // preservado (o registro e substituido inteiro logo abaixo).
+  entry.id = isEdit ? ((data[modalType][editId]||{}).id || genId()) : genId();
+
+  // Mesmo contrato+obra+material ja lancado antes? Avisa e deixa a pessoa
+  // decidir — pega o caso de lancar duas vezes por engano, mesmo sem
+  // nenhuma concorrencia entre pessoas envolvida.
+  if(achaDuplicataExistente(entry, isEdit?entry.id:null)){
+    const ok=confirm('Já existe um lançamento para "'+entry.obra+'" — Contrato '+entry.contrato+
+                      (entry.material?' — material "'+entry.material+'"':'')+
+                      '.\n\nCadastrar mesmo assim?');
+    if(!ok) return;
+  }
   if(isEdit){ data[modalType][editId]=entry; } else { data[modalType].push(entry); }
   logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':'Novo orçamento lançado');
   reclassifyAll();
@@ -1786,6 +1827,19 @@ function highlight(text){
 }
 
 // ---- NOTIFICATION SYSTEM ----
+// Fica fechado por padrao: o painel de avisos vira uma barra resumida, e so
+// mostra a lista inteira quando a pessoa clica. O estado sobrevive as
+// atualizacoes automaticas (a cada 10s), porque e uma variavel, nao algo
+// recalculado do zero.
+let notifAberto=false;
+function toggleNotif(){
+  notifAberto=!notifAberto;
+  const det=document.getElementById('notif-detalhes');
+  const acao=document.getElementById('notif-acao');
+  if(det) det.style.display=notifAberto?'block':'none';
+  if(acao) acao.textContent=notifAberto?'Ocultar ▲':'Ver detalhes ▼';
+}
+
 function checkNotifications(){
   const today = new Date(); today.setHours(0,0,0,0);
   const overdue=[], dueToday=[], leadCompromised=[];
@@ -1823,6 +1877,9 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
   const banner = document.getElementById('notif-banner');
   const hasAny = overdue.length||dueToday.length||leadCompromised.length||manutHoje.length||manutSemana.length||manutFora.length||(manutTransporte&&manutTransporte.length);
   if(!hasAny){ banner.style.display='none'; return; }
+
+  const total = overdue.length+dueToday.length+leadCompromised.length+manutHoje.length+manutSemana.length+manutFora.length+(manutTransporte?manutTransporte.length:0);
+  const critico = overdue.length||leadCompromised.length||manutHoje.length;
 
   let html='';
 
@@ -1915,7 +1972,12 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
     </div>`;
   }
 
-  banner.innerHTML=html;
+  banner.innerHTML=
+    `<div class="notif-resumo" style="background:${critico?'#FDF0EE':'#FEF7E6'};color:${critico?'#7a1f1f':'#6b4100'}" onclick="toggleNotif()">
+      <strong>${critico?'🚨':'⚠️'} ${total} aviso${total>1?'s':''} de compras</strong>
+      <span class="notif-resumo-acao" id="notif-acao">${notifAberto?'Ocultar ▲':'Ver detalhes ▼'}</span>
+    </div>
+    <div class="notif-detalhes" id="notif-detalhes" style="display:${notifAberto?'block':'none'}">${html}</div>`;
   banner.style.display='block';
 }
 
@@ -1942,6 +2004,9 @@ const SUPA_KEY='sb_publishable_D50BtCRtBblorV3j1_Z68A_S2T8goU8';
 const SUPA_SISTEMA='compras';
 let syncInterval = null;
 let isSyncing = false;
+// Retrato do que o servidor tinha na ultima vez que lemos. Serve para saber,
+// na hora de gravar, se outra pessoa mexeu nesse meio-tempo.
+let ultimoServidor = null;
 
 function getCfg(){ return {apiKey:SUPA_KEY,binId:SUPA_SISTEMA}; }
 function saveCfg(cfg){}
@@ -1987,12 +2052,24 @@ async function syncFromCloud(){
     setStatus('🔄 Sincronizando...');
     const remote=await fetchBin(cfg.apiKey,cfg.binId);
     if(!remote||typeof remote!=='object'||Array.isArray(remote)) throw new Error('Resposta invalida do servidor');
-    localStorage.setItem('dalum-data',JSON.stringify(remote));
+    const remoteStr=JSON.stringify(remote);
+    // So o servidor mudou de verdade desde a ultima leitura? Reconstruir a
+    // lista sem necessidade fazia a pagina voltar pro topo sozinha a cada
+    // 10 segundos, mesmo sem ninguem ter alterado nada — reconstruir o HTML
+    // reseta a rolagem. Comparando com o que ja tinhamos, isso so acontece
+    // quando existe alteracao de verdade para mostrar.
+    const mudouNoServidor = remoteStr!==ultimoServidor;
+    localStorage.setItem('dalum-data',remoteStr);
+    ultimoServidor=remoteStr;
     data=remote;
     dataReady=true;
     reclassifyAll();
-    render();
-    checkNotifications();
+    if(mudouNoServidor){
+      const scrollY=window.scrollY;
+      render();
+      checkNotifications();
+      window.scrollTo(0,scrollY);
+    }
     setStatus('🟢 Sincronizado · '+new Date().toLocaleTimeString('pt-BR'));
   }catch(e){
     setStatus('🔴 Sem conexão — dados locais','#ffcccc');
@@ -2010,6 +2087,140 @@ async function persistUsers(){
   }catch(e){ console.warn('Erro ao salvar usuários:', e); }
 }
 
+// ---- ALTERACAO SIMULTANEA: comparar, mostrar e deixar escolher ----
+const LISTAS_DADOS=['urgente','importante','pago','manutencao','historico','usuarios'];
+// Registro COM id e comparado pelo id: da para distinguir edicao de inclusao.
+// Registro antigo, ainda SEM id, cai na comparacao por conteudo — nesse caso
+// uma edicao aparece como remocao + inclusao, e por isso a juncao automatica
+// nao e oferecida.
+function chaveReg(r){ return (r&&r.id)?('id:'+r.id):('conteudo:'+JSON.stringify(r)); }
+
+function diferencas(antes,depois){
+  const inc=[],rem=[],alt=[];
+  LISTAS_DADOS.forEach(function(L){
+    const A={},D={};
+    ((antes&&antes[L])||[]).forEach(function(r){ A[chaveReg(r)]=r; });
+    ((depois&&depois[L])||[]).forEach(function(r){ D[chaveReg(r)]=r; });
+    Object.keys(D).forEach(function(k){
+      if(!(k in A)) inc.push({lista:L,reg:D[k],chave:k});
+      else if(JSON.stringify(A[k])!==JSON.stringify(D[k])) alt.push({lista:L,reg:D[k],chave:k});
+    });
+    Object.keys(A).forEach(function(k){ if(!(k in D)) rem.push({lista:L,reg:A[k],chave:k}); });
+  });
+  return {inc:inc,rem:rem,alt:alt};
+}
+
+function chavesTocadas(d){
+  return [].concat(d.inc,d.rem,d.alt).map(function(x){ return x.lista+'|'+x.chave; });
+}
+
+function normalizarTxt(t){ return String(t||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+
+// Dois lancamentos NOVOS que tem o MESMO contrato+obra+material sao tratados
+// como o mesmo assunto, mesmo tendo ids diferentes — pode ser lancamento
+// duplicado por engano. Por isso, mesmo sendo tecnicamente seguro juntar,
+// preferimos perguntar.
+//
+// O MATERIAL entra na chave de proposito: e normal um contrato ter varios
+// lancamentos legitimos (perfil aluminio, depois acessorios, depois vidro).
+// So contrato+obra iguais NAO bastam para suspeitar de duplicidade — sem o
+// material na comparacao, cada pessoa lancando uma etapa diferente do mesmo
+// contrato seria interrompida por engano.
+function chaveDuplicidade(lista,reg){
+  const obra=normalizarTxt(reg.obra);
+  if(!obra) return null;
+  const contrato = ('contrato' in reg) ? normalizarTxt(reg.contrato) : '';
+  const material = ('material' in reg) ? normalizarTxt(reg.material) : '';
+  return lista+'|'+obra+'|'+contrato+'|'+material;
+}
+function temDuplicidade(incDeles,incMeu){
+  const vistos={};
+  incDeles.forEach(function(x){ const k=chaveDuplicidade(x.lista,x.reg); if(k) vistos[k]=1; });
+  return incMeu.some(function(x){ const k=chaveDuplicidade(x.lista,x.reg); return !!(k && vistos[k]); });
+}
+
+// Mesma ideia de chaveDuplicidade, mas SEM o nome da lista — usada para
+// avisar no momento do cadastro, quando a MESMA pessoa lanca o mesmo
+// contrato+obra+material duas vezes seguidas, na mesma aba. Isso nao passa
+// pelo fluxo de concorrencia (nao ha conflito nenhum entre sessoes), entao
+// precisa dessa checagem separada, rodando sempre que algo novo e salvo —
+// e olhando as tres listas de pedido juntas (urgente/importante/pago), nao
+// so a lista atual.
+function chaveDuplicidadeGeral(reg){
+  const obra=normalizarTxt(reg.obra);
+  if(!obra) return null;
+  const contrato = ('contrato' in reg) ? normalizarTxt(reg.contrato) : '';
+  const material = ('material' in reg) ? normalizarTxt(reg.material) : '';
+  return obra+'|'+contrato+'|'+material;
+}
+function achaDuplicataExistente(entryNovo,idIgnorar){
+  const chave=chaveDuplicidadeGeral(entryNovo);
+  if(!chave) return false;
+  return ['urgente','importante','pago'].some(function(L){
+    return (data[L]||[]).some(function(r){
+      if(idIgnorar && r.id===idIgnorar) return false; // nao compara consigo mesmo, ao editar
+      return chaveDuplicidadeGeral(r)===chave;
+    });
+  });
+}
+
+function descreverReg(x){
+  const r=x.reg||{};
+  if(x.lista==='usuarios') return 'usuário '+(r.name||r.username||'');
+  const nome=r.obra||'(sem obra)';
+  const det=[r.material,r.fornecedor,r.nrOrc?('orç. '+r.nrOrc):''].filter(Boolean).join(' · ');
+  return nome+(det?' — '+det:'');
+}
+
+function htmlLadoConc(titulo,d,fundo,borda){
+  if(!d.inc.length&&!d.rem.length&&!d.alt.length) return '';
+  const linha=function(x,sinal){
+    return '<div style="font-size:12px;padding:3px 0;line-height:1.4">'+sinal+' '+
+           descreverReg(x)+' <span style="color:var(--gray-4)">('+x.lista+')</span></div>';
+  };
+  return '<div style="border:1px solid '+borda+';background:'+fundo+';border-radius:8px;padding:10px 12px;margin-bottom:10px">'+
+    '<div style="font-size:12px;font-weight:700;margin-bottom:6px">'+titulo+'</div>'+
+    d.inc.map(function(x){ return linha(x,'➕'); }).join('')+
+    d.alt.map(function(x){ return linha(x,'✏️'); }).join('')+
+    d.rem.map(function(x){ return linha(x,'➖'); }).join('')+
+  '</div>';
+}
+
+function pedirDecisaoConcorrencia(deles,meu,podeJuntar){
+  return new Promise(function(resolve){
+    document.getElementById('conc-deles').innerHTML=
+      htmlLadoConc('A outra pessoa gravou:',deles,'#FEF7E6','#F5D98A')||
+      '<div style="font-size:12px;color:var(--gray-4);margin-bottom:10px">A outra pessoa alterou algo que não dá para detalhar.</div>';
+    document.getElementById('conc-meu').innerHTML=
+      htmlLadoConc('Você está gravando:',meu,'#E6F8FB','#1FB6CF')||
+      '<div style="font-size:12px;color:var(--gray-4);margin-bottom:10px">Você não incluiu nem removeu nada.</div>';
+    const bJ=document.getElementById('conc-btn-juntar');
+    const bM=document.getElementById('conc-btn-meu');
+    const bD=document.getElementById('conc-btn-descartar');
+    bJ.style.display = podeJuntar ? 'block' : 'none';
+    const ov=document.getElementById('conc-overlay');
+    function decidir(v){ bJ.onclick=bM.onclick=bD.onclick=null; ov.classList.remove('open'); resolve(v); }
+    bJ.onclick=function(){ decidir('juntar'); };
+    bM.onclick=function(){ decidir('meu'); };
+    bD.onclick=function(){ decidir('descartar'); };
+    ov.classList.add('open');
+  });
+}
+
+// Parte da versao do servidor e aplica por cima o que EU fiz.
+function juntarAlteracoes(servidor,minhas){
+  const res=JSON.parse(JSON.stringify(servidor));
+  const acha=function(L,chave){
+    if(!Array.isArray(res[L])) res[L]=[];
+    for(let i=0;i<res[L].length;i++){ if(chaveReg(res[L][i])===chave) return i; }
+    return -1;
+  };
+  minhas.inc.forEach(function(x){ if(acha(x.lista,x.chave)<0) res[x.lista].push(x.reg); });
+  minhas.alt.forEach(function(x){ const i=acha(x.lista,x.chave); if(i>=0) res[x.lista][i]=x.reg; else res[x.lista].push(x.reg); });
+  minhas.rem.forEach(function(x){ const i=acha(x.lista,x.chave); if(i>=0) res[x.lista].splice(i,1); });
+  return res;
+}
+
 async function persist(){
   if(!dataReady) return; // Nunca salva antes de carregar da nuvem
   const totalItems=(data.urgente||[]).length+(data.importante||[]).length+(data.pago||[]).length+(data.manutencao||[]).length+(data.historico||[]).length+(data.usuarios||[]).length;
@@ -2020,7 +2231,86 @@ async function persist(){
   if(!cfg){ return; }
   try{
     setStatus('🔄 Salvando...');
+
+    // Antes de gravar por cima, conferir se o servidor mudou desde a ultima
+    // leitura. Este modulo grava o documento INTEIRO: sem esta conferencia, o
+    // salvamento apaga a alteracao de outra pessoa sem ninguem perceber.
+    if(ultimoServidor!==null){
+      let atual=null;
+      try{ atual=await fetchBin(cfg.apiKey,cfg.binId); }catch(e){ atual=null; }
+      if(atual && JSON.stringify(atual)!==ultimoServidor){
+        const base=JSON.parse(ultimoServidor);
+        const deles=diferencas(base,atual);   // o que a outra pessoa fez
+        const meu=diferencas(base,data);      // o que eu fiz
+        const dela=chavesTocadas(deles), minhas=chavesTocadas(meu);
+        const mesmoRegistro=minhas.some(function(k){ return dela.indexOf(k)>=0; });
+        const duplicidade=temDuplicidade(deles.inc,meu.inc);
+        // Registros antigos sem id sao comparados por conteudo, entao uma
+        // edicao neles conta como registro diferente — por isso, so para eles,
+        // so juntamos quando nao houve remocao de nenhum lado.
+        const temSemId=[].concat(deles.inc,deles.rem,deles.alt,meu.inc,meu.rem,meu.alt)
+                         .some(function(x){ return x.chave.indexOf('conteudo:')===0; });
+        const seguro = !mesmoRegistro && !duplicidade &&
+                       (dela.length>0 || minhas.length>0) &&
+                       (!temSemId || (deles.rem.length===0 && meu.rem.length===0));
+
+        if(seguro){
+          // Cada um mexeu em algo diferente (obra/contrato diferentes) — junta
+          // sozinho, sem interromper quem esta lancando. E o caso normal de
+          // duas pessoas cadastrando orcamentos ao mesmo tempo.
+          data=juntarAlteracoes(atual,meu);
+          localStorage.setItem('dalum-data',JSON.stringify(data));
+          reclassifyAll();
+          render();
+        }else{
+          // So pergunta quando de fato pode haver problema: mesmo registro
+          // alterado pelos dois, ou dois lancamentos novos com o mesmo
+          // contrato+obra (possivel duplicidade).
+          const podeJuntar = !mesmoRegistro && (dela.length>0 || minhas.length>0) &&
+                             (!temSemId || (deles.rem.length===0 && meu.rem.length===0));
+          const escolha=await pedirDecisaoConcorrencia(deles,meu,podeJuntar);
+          if(escolha==='descartar'){
+            setStatus('↩️ Carregando a versão mais nova...');
+            ultimoServidor=null;
+            await syncFromCloud();
+            return;
+          }
+          if(escolha==='juntar'){
+            data=juntarAlteracoes(atual,meu);
+            localStorage.setItem('dalum-data',JSON.stringify(data));
+            reclassifyAll();
+            render();
+          }
+          // 'meu' = segue adiante e grava o que esta na tela, por cima
+        }
+      }
+    }
+
+    // Carimbo unico, usado logo abaixo para conferir se a gravacao realmente
+    // aconteceu. Vai junto no documento.
+    const carimbo=new Date().toISOString()+'-'+Math.random().toString(36).slice(2,8);
+    data.atualizadoEm=carimbo;
+    data.atualizadoPor=sessionStorage.getItem('dalum-user')||lastBy||'';
+
     await pushBin(cfg.apiKey,cfg.binId,data);
+
+    // O servidor chega a responder "ok" sem ter gravado nada — acontece, por
+    // exemplo, quando o registro do modulo nao existe no banco. Por isso nao
+    // da para confiar na resposta dele: relemos e conferimos o carimbo.
+    let confere=null;
+    try{ confere=await fetchBin(cfg.apiKey,cfg.binId); }catch(e){ confere=null; }
+    if(!confere || confere.atualizadoEm!==carimbo){
+      setStatus('🔴 NÃO gravou no servidor','#ffcccc');
+      alert('ATENÇÃO — os dados NÃO foram salvos no servidor.\n\n'+
+            'O servidor respondeu que deu certo, mas ao conferir, a informação não estava lá.\n\n'+
+            'O que você digitou continua nesta tela e no seu navegador, mas ainda NÃO está salvo '+
+            'para as outras pessoas.\n\n'+
+            'Não feche a página. Verifique a internet e tente salvar de novo. '+
+            'Se continuar, avise o responsável pelo sistema.');
+      return;
+    }
+    ultimoServidor=JSON.stringify(confere);
+
     setStatus('🟢 Salvo · '+new Date().toLocaleTimeString('pt-BR'));
   }catch(e){
     setStatus('🔴 Erro ao salvar — salvo localmente','#ffcccc');
@@ -2029,7 +2319,14 @@ async function persist(){
 
 function startAutoSync(){
   if(syncInterval) clearInterval(syncInterval);
-  syncInterval=setInterval(syncFromCloud,30000);
+  // A cada 10 segundos, mas NUNCA com um formulario aberto: a sincronizacao
+  // troca os dados por baixo de quem esta editando, e como a edicao aqui usa a
+  // POSICAO do registro na lista, salvar depois disso pode gravar no registro
+  // errado.
+  syncInterval=setInterval(function(){
+    if(document.querySelector('.modal-overlay.open')) return;
+    syncFromCloud();
+  },10000);
 }
 
 async function load(){
