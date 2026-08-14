@@ -1085,6 +1085,7 @@ let scanArrastando=-1;
 const SCAN_MAX=2200;
 
 function abrirScanner(){
+  scanLigarEventos();
   scanPaginas=[]; scanImagem=null; scanCantos=null; scanPB=true;
   document.getElementById('scan-vazio').style.display='';
   document.getElementById('scan-editor').style.display='none';
@@ -1566,8 +1567,14 @@ async function scanEntregar(arquivo){
 }
 
 
-// Arrastar os cantos do enquadramento, no dedo e no mouse.
-(function(){
+// Liga o arrastar dos cantos na primeira vez que o scanner abre.
+//
+// Nao da para ligar quando o arquivo carrega: a janela do scanner fica DEPOIS
+// do codigo no arquivo, entao naquele momento ela ainda nao existe e os
+// eventos se perdiam em silencio — o corte simplesmente nao respondia.
+let scanEventosLigados=false;
+function scanLigarEventos(){
+  if(scanEventosLigados) return;
   const t=document.getElementById("scan-tela");
   if(!t) return;
   t.addEventListener("mousedown",scanPegar);
@@ -1576,7 +1583,8 @@ async function scanEntregar(arquivo){
   t.addEventListener("touchmove",scanMover,{passive:false});
   window.addEventListener("mouseup",scanSoltar);
   t.addEventListener("touchend",scanSoltar);
-})();
+  scanEventosLigados=true;
+}
 
 async function scanSalvar(){
   if(!scanPaginas.length) return;
@@ -2003,9 +2011,9 @@ ${opts.manutencao&&(data.manutencao||[]).length?`<div class="page">
      arquivo, o que ainda serve para quem já escaneou pela impressora.
      Navegador nenhum consegue falar com um scanner — é barreira do sistema,
      não limitação daqui. -->
-<div class="overlay" id="scan-ov" style="z-index:300">
+<div class="modal-overlay" id="scan-ov" style="z-index:300">
   <div class="modal" style="max-width:640px">
-    <div class="modal-head">
+    <div class="modal-header">
       <div class="modal-title">📷 Escanear documento <span id="scan-contador" style="font-size:12px;font-weight:400;color:var(--gray-4)"></span></div>
       <button class="btn btn-outline btn-sm" onclick="fecharScanner()">Fechar</button>
     </div>
@@ -2050,7 +2058,7 @@ ${opts.manutencao&&(data.manutencao||[]).length?`<div class="page">
         <div id="scan-miniaturas" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
     </div>
-    <div class="modal-foot">
+    <div class="modal-footer">
       <span id="scan-status" style="flex:1;font-size:11.5px;color:var(--gray-4)"></span>
       <button class="btn btn-outline btn-sm" id="scan-btn-mais" onclick="document.getElementById('scan-arquivo').click()" style="display:none">+ Outra página</button>
       <button class="btn btn-teal" id="scan-btn-salvar" onclick="scanSalvar()" style="display:none">Salvar como PDF</button>
