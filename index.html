@@ -1031,11 +1031,16 @@ function saveEntry(){
   const _paraQuem=marcadosParaNotificar();
   const _elPedido=document.getElementById('f-pedido');
   const _textoPedido=((_elPedido&&_elPedido.value)||'').trim();
+  // Quem pede e quem esta usando o sistema AGORA, e nao o campo "Seu nome".
+  // Ao editar, esse campo mostra quem LANCOU a obra: em 11/09/2026 o Ander fez
+  // pedidos em obras lancadas pela Hyllary, eles foram gravados no nome dela,
+  // e a janela de "material colocado" e o WhatsApp de volta foram para ela.
+  const _quemPede=usuarioLogado()||byVal;
   if(_paraQuem.length && _textoPedido){
     entry.pedido={
       texto:_textoPedido,
       para:_paraQuem.map(function(p){ return {name:p.name,whatsapp:p.whatsapp}; }),
-      por:byVal,
+      por:_quemPede,
       em:new Date().toISOString(),
       cobrancas:[],
       feito:null
@@ -1045,7 +1050,7 @@ function saveEntry(){
   if(isEdit){ data[modalType][editId]=entry; } else { data[modalType].push(entry); }
   logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':'Novo orçamento lançado');
   if(_paraQuem.length && _textoPedido){
-    logAction(byVal,'Pediu material',entry,
+    logAction(_quemPede,'Pediu material',entry,
       'Para '+_paraQuem.map(function(p){ return p.name; }).join(', ')+': '+
       _textoPedido.replace(/\s+/g,' ').slice(0,140));
   }
@@ -1064,7 +1069,7 @@ function saveEntry(){
         if(_textoPedido){
           // Escreveu um pedido: a mensagem deixa de ser o aviso generico de
           // obra e passa a ser o pedido em si, com o que fazer para responder.
-          msg=montarMsgPedido(entry,_textoPedido,byVal,entregaFmt,false);
+          msg=montarMsgPedido(entry,_textoPedido,_quemPede,entregaFmt,false);
         } else {
           const tipoLabel=entry.tipo==='especial'?'Especial':'Padrão';
           const titulo=isEdit?'OBRA ATUALIZADA - Daluminium':'NOVA OBRA LANCADA - Daluminium';
@@ -2322,7 +2327,9 @@ function blocoPedido(type,i,r){
   if(p.feito){
     return '<span class="td-by" style="display:block;margin-top:4px;white-space:normal;'+
       'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:6px;padding:5px 7px;color:#2E7D32">'+
-      '✅ Colocado por <strong>'+escHtml(p.feito.por)+'</strong> em '+
+      (p.feito.como==='manual'
+        ? '✅ Marcado como feito por <strong>'+escHtml(p.feito.marcadoPor||'—')+'</strong> em '
+        : '✅ Colocado por <strong>'+escHtml(p.feito.por)+'</strong> em ')+
       new Date(p.feito.em).toLocaleDateString('pt-BR')+
       '<span style="display:block;color:#558B2F;margin-top:2px">'+txt+'</span></span>';
   }
@@ -2339,7 +2346,9 @@ function blocoPedido(type,i,r){
       'padding:4px 10px;font-weight:600;font-size:11.5px;cursor:pointer;font-family:inherit">Já foi feito</button>';
   return '<span class="td-by" style="display:block;margin-top:4px;white-space:normal;'+
     'background:#FFF8E1;border:1px solid #FFE082;border-radius:6px;padding:5px 7px;color:#8D6E00">'+
-    '⏳ Aguardando <strong>'+escHtml(nomesDoPedido(p))+'</strong> — pedido '+textoDias(diasDesde(p.em))+
+    // "pedido por" fica a vista porque e para essa pessoa que vai a janela de
+    // "material colocado" — se o nome estiver errado, da para ver na hora.
+    '⏳ Aguardando <strong>'+escHtml(nomesDoPedido(p))+'</strong> — pedido por '+escHtml(p.por||'—')+' '+textoDias(diasDesde(p.em))+
     (cob?' · '+cob+' cobrança'+(cob>1?'s':''):'')+
     '<span style="display:block;margin:3px 0 6px;color:#6D5600">'+txt+'</span>'+
     botoes+'</span>';
@@ -2354,7 +2363,9 @@ function mostrarStatusPedido(p){
   cx.style.display='block';
   cx.innerHTML = p.feito
     ? '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:6px;padding:6px 9px;font-size:12px;color:#2E7D32;line-height:1.45">'+
-      '✅ Pedido já atendido — colocado por <strong>'+escHtml(p.feito.por)+'</strong> em '+
+      (p.feito.como==='manual'
+        ? '✅ Pedido marcado como feito por <strong>'+escHtml(p.feito.marcadoPor||'—')+'</strong> em '
+        : '✅ Pedido já atendido — colocado por <strong>'+escHtml(p.feito.por)+'</strong> em ')+
       new Date(p.feito.em).toLocaleDateString('pt-BR')+'.</div>'
     : '<div style="background:#FFF3E0;border:1px solid #FFCC80;border-radius:6px;padding:6px 9px;font-size:12px;color:#8D6E00;line-height:1.45">'+
       '⏳ Já existe um pedido em aberto com <strong>'+escHtml(nomesDoPedido(p))+'</strong>, feito '+
@@ -3283,6 +3294,15 @@ let isSyncing = false;
 // Retrato do que o servidor tinha na ultima vez que lemos. Serve para saber,
 // na hora de gravar, se outra pessoa mexeu nesse meio-tempo.
 let ultimoServidor = null;
+// Gravacao em andamento e alteracao local ainda nao confirmada pelo servidor.
+// Em 11/09/2026 o Admin apertou "Ja coloquei", a tela ficou verde, e no
+// servidor continuou amarelo: a sincronizacao automatica (a cada 10 s) tinha
+// buscado a versao ANTIGA antes do clique, chegou depois dele, trocou os dados
+// da tela por ela — e a gravacao, que ainda estava a caminho, gravou essa
+// versao antiga e disse "Salvo". Com estes dois contadores, a sincronizacao
+// nao substitui nada enquanto ha gravacao em curso, e descarta a leitura que
+// saiu antes de uma alteracao feita aqui.
+let _gravando = 0, _versaoLocal = 0;
 
 function getCfg(){ return {apiKey:SUPA_KEY,binId:SUPA_SISTEMA}; }
 function saveCfg(cfg){}
@@ -3473,14 +3493,27 @@ async function createBin(apiKey, payload){
   return j.metadata.id;
 }
 
-async function syncFromCloud(){
+// forcar: so a opcao "descartar" do aviso de conflito usa. Ela roda DE DENTRO
+// da gravacao, entao sem isso as travas abaixo a ignoravam: a tela ficava com a
+// versao descartada e, sem a referencia do servidor, a gravacao seguinte
+// passava por cima da outra pessoa sem perguntar.
+async function syncFromCloud(forcar){
   const cfg=getCfg(); if(!cfg) return;
-  if(isSyncing) return;
+  if(isSyncing && !forcar) return;
+  if(_gravando && !forcar) return;   // a gravacao em curso ja vai trazer a versao nova
   isSyncing=true;
+  const versaoAntes=_versaoLocal;
   try{
     setStatus('🔄 Sincronizando...');
     const remote=await fetchBin(cfg.apiKey,cfg.binId);
     if(!remote||typeof remote!=='object'||Array.isArray(remote)) throw new Error('Resposta invalida do servidor');
+    // A leitura saiu ANTES de alguma alteracao feita nesta tela? Entao ela e
+    // velha: aplicar trocaria a alteracao pela versao antiga. Descarta — a
+    // proxima rodada, em 10 s, busca de novo.
+    if(!forcar && (_gravando || _versaoLocal!==versaoAntes)){
+      isSyncing=false;
+      return;
+    }
     const remoteStr=JSON.stringify(remote);
     // So o servidor mudou de verdade desde a ultima leitura? Reconstruir a
     // lista sem necessidade fazia a pagina voltar pro topo sozinha a cada
@@ -3650,7 +3683,17 @@ function juntarAlteracoes(servidor,minhas){
   return res;
 }
 
+// Toda gravacao passa por aqui. Marca que ha uma alteracao local e que ela
+// esta a caminho do servidor, e desmarca ao terminar — de qualquer jeito que
+// termine, inclusive com erro. Quem olha isso e a syncFromCloud.
 async function persist(){
+  _versaoLocal++;
+  _gravando++;
+  try{ return await gravarNoServidor(); }
+  finally{ _gravando--; }
+}
+
+async function gravarNoServidor(){
   if(!dataReady) return; // Nunca salva antes de carregar da nuvem
   const totalItems=(data.urgente||[]).length+(data.importante||[]).length+(data.pago||[]).length+(data.manutencao||[]).length+(data.historico||[]).length+(data.usuarios||[]).length;
   const hasSaldo=Object.values(data.saldosIniciais||{}).some(v=>v>0);
@@ -3701,7 +3744,7 @@ async function persist(){
           if(escolha==='descartar'){
             setStatus('↩️ Carregando a versão mais nova...');
             ultimoServidor=null;
-            await syncFromCloud();
+            await syncFromCloud(true);
             return;
           }
           if(escolha==='juntar'){
