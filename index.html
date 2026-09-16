@@ -3289,6 +3289,19 @@ async function sendBrowserNotifications(overdue, dueToday, leadCompromised, manu
 const SUPA_URL='';
 const SUPA_KEY='';
 const SUPA_SISTEMA='compras';
+// ATENCAO: muda de producao para teste, igual ao SUPA_SISTEMA acima.
+// Teste: https://daluminium.github.io/teste/
+// Este modulo nao tem mais porta propria — quem chega sem cracha vai para o
+// portal, que e o unico lugar onde a regra de um acesso por pessoa e aplicada.
+const PORTAL_URL='https://daluminium.github.io/portal/';
+// De qual ambiente sao as sessoes deste modulo. A lista de sessoes e UMA SO para
+// teste e producao — nao existe 'sessions_teste'. Sem esta marca, entrar aqui
+// derrubava quem estava trabalhando no outro lado. Sai do proprio SUPA_SISTEMA
+// para o mesmo codigo servir nos dois, sem virar mais uma diferenca a manter.
+const AMBIENTE = /_teste$/.test(SUPA_SISTEMA) ? 'teste' : 'producao';
+// Sessao gravada antes desta marca existir conta como producao, que era o
+// comportamento de entao.
+function mesmoAmbiente(s){ return (s.ambiente||'producao')===AMBIENTE; }
 let syncInterval = null;
 let isSyncing = false;
 // Retrato do que o servidor tinha na ultima vez que lemos. Serve para saber,
@@ -4057,8 +4070,8 @@ async function registrarSessao(nome, username){
     if(!r.ok) return;
     const d=await r.json();
     const _u=(username||nome||'').toLowerCase().trim();
-    const ativas=(d.ativas||[]).filter(s=>s.sessionId!==_sessionId&&(s.username||'').toLowerCase().trim()!==_u);
-    ativas.push({sessionId:_sessionId,username:_u,nome,sistema:'compras',ts:Date.now(),inicio:Date.now()});
+    const ativas=(d.ativas||[]).filter(s=>s.sessionId!==_sessionId&&!((s.username||'').toLowerCase().trim()===_u&&mesmoAmbiente(s)));
+    ativas.push({sessionId:_sessionId,username:_u,nome,sistema:'compras',ambiente:AMBIENTE,ts:Date.now(),inicio:Date.now()});
     d.ativas=ativas;
     await fetch('https://daluminium-api.daluminium2.workers.dev',{
       method:'PATCH',
@@ -4093,15 +4106,21 @@ async function checkForceLogout(){
     const d=await r.json();
     const forced=(d.forceLogout||[]);
     if(forced.includes(_sessionId)){
+      // O motivo vem junto do portal. Sem ele a pessoa lia "encerrada pelo
+      // administrador" mesmo quando o administrador nao tinha feito nada.
+      const motivo=(d.forceLogoutMotivo||{})[_sessionId]==='outro-login'?'outro-login':'deslogado';
       // Remove da lista e faz logout
       d.forceLogout=forced.filter(s=>s!==_sessionId);
-      encerrarNaLista(d,_sessionId,'deslogado');
+      if(d.forceLogoutMotivo) delete d.forceLogoutMotivo[_sessionId];
+      encerrarNaLista(d,_sessionId,motivo);
       await fetch('https://daluminium-api.daluminium2.workers.dev',{
         method:'PATCH',
         headers:cabecalhos('sessions',{'Content-Type':'application/json'}),
         body:JSON.stringify({data:d})
       });
-      alert('Sua sessão foi encerrada pelo administrador.');
+      alert(motivo==='outro-login'
+        ?'Sua sessão foi encerrada porque este usuário entrou em outro navegador.'
+        :'Sua sessão foi encerrada pelo administrador.');
       doLogout();
       return;
     }
@@ -4127,7 +4146,7 @@ async function renovarPresenca(d){
     const nome=_sessQuem.nome||sessionStorage.getItem('dalum-user')||'';
     d.ativas=(d.ativas||[]).concat([{sessionId:_sessionId,
       username:_sessQuem.username||nome.toLowerCase().trim(),
-      nome, sistema:'compras', ts:AGORA, inicio:AGORA}]);
+      nome, sistema:'compras', ambiente:AMBIENTE, ts:AGORA, inicio:AGORA}]);
     precisaGravar=true;
   }
   if(!precisaGravar) return;
@@ -4141,7 +4160,9 @@ async function renovarPresenca(d){
 let _forceLogoutInterval=null;
 function startSessionCheck(){
   if(_forceLogoutInterval) return;
-  _forceLogoutInterval=setInterval(checkForceLogout, 30000);
+  // 5s, igual ao portal: com 30s a pessoa continuava lancando por meio minuto
+  // depois de ja ter sido derrubada em outro navegador.
+  _forceLogoutInterval=setInterval(checkForceLogout, 5000);
 }
 
 // ---- SEGURANÇA ----
@@ -4434,7 +4455,13 @@ if(checkCracha()){
   showAdminBtn(savedRole==='admin');
   load();
 } else {
-  setTimeout(()=>document.getElementById('login-user').focus(), 300);
+  // Porta unica. Antes aparecia a tela de login daqui, e entrar por ela furava a
+  // regra de um acesso por pessoa: quem sabia o endereco do modulo entrava sem
+  // aviso e sem derrubar a outra sessao. Agora manda para o portal.
+  // Usa o window.top porque dentro do portal este arquivo roda num iframe —
+  // trocar so o endereco do iframe abriria portal dentro de portal.
+  try{ (window.top||window).location.replace(PORTAL_URL); }
+  catch(e){ window.location.replace(PORTAL_URL); }
 }
 </script>
 <!-- ESCANEAR PELO CELULAR.
