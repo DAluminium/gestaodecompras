@@ -1757,9 +1757,12 @@ async function viewFile(id,type,name,url){
   }
   const isPdf=(type||'').includes('pdf');
   if(isPdf){
-    abrirAnexo(url);
+    abrirAnexo(url,name);
   } else {
-    try{ showImagePreview(await linkDoAnexo(url),name); }
+    try{
+      showImagePreview(await linkDoAnexo(url,name),name);
+      document.getElementById('img-dl-btn').onclick=function(){ baixarAnexo(url,name); };
+    }
     catch(e){ alert('Não consegui abrir o anexo.\n\n'+e.message); }
   }
 }
@@ -1769,7 +1772,7 @@ function downloadFile(id,type,name,url){
     alert('Este anexo foi salvo antes da atualização para a nuvem.\nPor favor remova-o (🗑️) e anexe novamente.');
     return;
   }
-  abrirAnexo(url);
+  baixarAnexo(url,name);
 }
 
 function showImagePreview(url,name){
@@ -1801,7 +1804,7 @@ function closeImagePreview(){
 function printAll(){
   const r=data[attachType][attachIdx];
   if(!r.attachments||!r.attachments.length){ alert('Nenhum anexo.'); return; }
-  r.attachments.forEach(a=>abrirAnexo(a.url));
+  r.attachments.forEach(a=>baixarAnexo(a.url,a.name));
 }
 
 async function removeAttach(idx){
@@ -3406,24 +3409,54 @@ async function definirSenha(usuario,senha,senhaAtual){
 // contrato, proposta ou comprovante sem login, para sempre. Agora o Worker
 // confere o cracha e devolve um link que vale 1 minuto. Para mandar um anexo
 // a alguem, mande o ARQUIVO, nao o link.
-async function linkDoAnexo(url){
+async function linkDoAnexo(url,nome){
   const r=await fetch(WORKER_URL,{method:'POST',cache:'no-store',
     headers:cabecalhos(SUPA_SISTEMA,{'Content-Type':'application/json','X-Action':'abrir-anexo'}),
-    body:JSON.stringify({url:url})});
+    body:JSON.stringify({url:url,nome:nome||''})});
   let j=null; try{ j=await r.json(); }catch(e){}
   if(!r.ok||!j||!j.url) throw new Error((j&&j.erro)||('erro '+r.status+' no servidor'));
-  return j.url;
+  // 'abrir' e o endereco pelo Worker, com o nome original no fim (o leitor de
+  // PDF salva com esse nome, e baixar imagem funciona).
+  return j.abrir||j.url;
 }
 // A aba abre JA no clique e recebe o endereco quando ele chega: aberta depois
 // de esperar o Worker, o navegador a bloquearia como propaganda.
-async function abrirAnexo(url){
+async function abrirAnexo(url,nome){
   const aba=window.open('','_blank');
   try{
-    const u=await linkDoAnexo(url);
+    const u=await linkDoAnexo(url,nome);
     if(aba){ aba.opener=null; aba.location.href=u; } else location.href=u;
   }catch(e){
     if(aba) aba.close();
     alert('Não consegui abrir o anexo.\n\n'+e.message);
+  }
+}
+// Baixar de verdade, com o nome original. Sem isto o navegador ignora o
+// pedido de baixar (o arquivo e de outro site) e so abre — a imagem abria no
+// lugar da tela do modulo, e o PDF saia com o nome "download.pdf".
+async function baixarAnexo(url,nome){
+  try{
+    const l=await linkDoAnexo(url,nome);
+    // Pelo endereco do Worker: ele manda o navegador SALVAR, com o nome
+    // original. O download comeca na hora e aparece na barra do navegador
+    // (antes a janela so abria depois de o arquivo inteiro chegar).
+    if(l.indexOf('/anexo/')>0){
+      const d=document.createElement('a');
+      d.href=l+'&baixar=1';
+      document.body.appendChild(d); d.click(); d.remove();
+      return;
+    }
+    const r=await fetch(l,{cache:'no-store'});
+    if(!r.ok) throw new Error('o serviço de arquivos respondeu '+r.status);
+    // Como arquivo generico: a extensao do Acrobat intercepta download de PDF
+    // e deixava a setinha lenta. O nome continua .pdf e o arquivo e o mesmo.
+    const obj=URL.createObjectURL(new Blob([await r.arrayBuffer()],{type:'application/octet-stream'}));
+    const a=document.createElement('a');
+    a.href=obj; a.download=nome||'arquivo';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(obj); },60000);
+  }catch(e){
+    alert('Não consegui baixar o anexo.\n\n'+e.message);
   }
 }
 // Envio assinado pelo Worker: o arquivo sobe como privado. Devolve a mesma
