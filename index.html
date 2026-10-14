@@ -407,7 +407,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
         <div class="section-divider" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-4);padding:10px 0 6px;margin-top:6px;border-top:1px solid var(--gray-2);grid-column:1/-1">Dados adicionais (opcional)</div>
         <div class="form-group"><label>Material</label><input id="f-material" type="text" placeholder="Ex: Perfil Alumínio"></div>
         <div class="form-group"><label>Nº do orçamento</label><input id="f-nrorc" type="text" placeholder="Ex: 21547"></div>
-        <div class="form-group span2"><label>Fornecedor</label><input id="f-fornecedor" type="text" placeholder="Ex: Mirandex"></div>
+        <div class="form-group span2"><label>Fornecedor</label><input id="f-fornecedor" type="text" placeholder="Ex: Mirandex" list="lista-forn-cad" autocomplete="off" oninput="aplicarFornecedorCad('f')" onchange="aplicarFornecedorCad('f')"><span id="f-forn-dica" class="note" style="display:none;margin-top:4px;font-size:11.5px;line-height:1.4"></span></div>
         <div class="form-group"><label>Valor (R$)</label><input id="f-valor" type="text" placeholder="Ex: 1.195,91"></div>
         <div class="form-group" id="status-group"><label>Status</label>
           <select id="f-status"><option value="Pendente">Pendente</option><option value="Atrasada">Atrasada</option><option value="Aguardando cliente">Aguardando cliente</option><option value="OK">OK</option></select>
@@ -557,7 +557,8 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
         </div>
         <div class="form-group span2" style="background:var(--gray-1);border-radius:var(--radius);padding:10px 12px">
           <label style="color:var(--gray-5)">Fornecedor (quando definido)</label>
-          <input id="m-fornecedor" type="text" placeholder="Ex: Ferragem Central" style="margin-top:6px">
+          <input id="m-fornecedor" type="text" placeholder="Ex: Ferragem Central" style="margin-top:6px" list="lista-forn-cad" autocomplete="off" oninput="aplicarFornecedorCad('m')" onchange="aplicarFornecedorCad('m')">
+          <span id="m-forn-dica" class="note" style="display:none;margin-top:4px;font-size:11.5px;line-height:1.4"></span>
         </div>
         <div class="section-divider" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-4);padding:10px 0 6px;margin-top:2px;border-top:1px solid var(--gray-2);grid-column:1/-1">Dados para pagamento (opcional)</div>
         <div class="form-group span2"><label>Chave Pix</label><input id="m-pix" type="text" placeholder="CNPJ, CPF, e-mail, telefone ou chave aleatória"></div>
@@ -698,6 +699,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
 </div>
 
 <input type="file" id="file-input" accept=".json" style="display:none" onchange="handleImport(event)">
+<datalist id="lista-forn-cad"></datalist>
 
 <script>
 
@@ -913,6 +915,102 @@ function setTab(tab,el){
   if(tab==='manutencao'){ renderManutencao(); document.getElementById('count-concluidas').textContent=(data.manutComprada||[]).length; }
 }
 
+// ---- CADASTRO UNICO DE FORNECEDORES (13/10/2026) ----
+// O cadastro mora no portal (botao "Cadastros"), no registro 'cadastros'
+// (no teste, 'cadastros_teste'). Aqui ele so e LIDO: vira a lista de sugestoes
+// do campo Fornecedor e, ao escolher, preenche PIX, favorecido, banco e conta
+// que estiverem VAZIOS — o que ja foi digitado na compra nunca e trocado.
+// Se a leitura falhar (Worker antigo, sem acesso), o campo continua sendo
+// texto livre, como sempre foi.
+let _fornCad = null;
+function cadSistema(){ return AMBIENTE==='teste' ? 'cadastros_teste' : 'cadastros'; }
+function normalizarNomeForn(t){
+  return String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9 ]+/g,' ')
+    .replace(/\b(ltda|me|epp|eireli|s ?a|cia|comercio|com)\b/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+async function carregarFornecedoresCad(){
+  try{
+    const r=await fetch(WORKER_URL+'?t='+Date.now(),{cache:'no-store',headers:cabecalhos(cadSistema())});
+    if(!r.ok) return;
+    const d=await r.json();
+    _fornCad=((d&&Array.isArray(d.fornecedores))?d.fornecedores:[])
+      .filter(function(f){ return f && (f.uso==='compras'||f.uso==='ambos'); });
+    const dl=document.getElementById('lista-forn-cad');
+    if(dl) dl.innerHTML=_fornCad.map(function(f){ return '<option value="'+escHtml(f.nome)+'"></option>'; }).join('');
+  }catch(e){}
+}
+function acharFornecedorCad(nome){
+  const k=normalizarNomeForn(nome);
+  if(!k||!_fornCad) return null;
+  return _fornCad.find(function(f){ return normalizarNomeForn(f.nome)===k; })||null;
+}
+// Os dados de pagamento acompanham o FORNECEDOR. Ate 13/10/2026 so se
+// preenchia campo vazio: trocar a Mirandex pelo Projeto Aluminio deixava o PIX
+// da Mirandex na compra, com "✓ Fornecedor do cadastro" embaixo (o Ander
+// achou no teste). Agora a tela lembra o que estava ao abrir (`orig`) e o que
+// ela mesma colocou (`ultimo`). Campo que ainda mostra um desses valores e do
+// sistema: troca junto com o fornecedor — ou fica vazio, se o novo nao tiver
+// o dado. Voltando ao fornecedor do inicio, volta o que estava gravado.
+// Campo que a PESSOA digitou nunca e apagado: so recebe aviso.
+const CAMPOS_PAG_FORN=['pix','pixNome','banco','conta'];
+const _pagForn={};
+function campoPagForn(px,k){ return document.getElementById(px+'-'+{pix:'pix',pixNome:'pix-nome',banco:'banco',conta:'conta'}[k]); }
+function iniciarFornecedorCad(px){
+  const ent=document.getElementById(px+'-fornecedor');
+  const orig={};
+  CAMPOS_PAG_FORN.forEach(function(k){ const el=campoPagForn(px,k); orig[k]=el?el.value:''; });
+  _pagForn[px]={nomeOrig:ent?ent.value:'', orig:orig, ultimo:Object.assign({},orig)};
+}
+function aplicarFornecedorCad(px){
+  const dica=document.getElementById(px+'-forn-dica');
+  const ent=document.getElementById(px+'-fornecedor');
+  if(!dica||!ent) return;
+  if(!_pagForn[px]) iniciarFornecedorCad(px);
+  const st=_pagForn[px];
+  const nome=ent.value.trim();
+  const doInicio=normalizarNomeForn(nome)===normalizarNomeForn(st.nomeOrig);
+  const f=(_fornCad===null)?null:acharFornecedorCad(nome);
+  const trocou=[], diferente=[];
+  CAMPOS_PAG_FORN.forEach(function(k){
+    const el=campoPagForn(px,k);
+    if(!el) return;
+    if(el.value===(st.ultimo[k]||'')){
+      // Do sistema: segue o fornecedor. Sem cadastro carregado, so mexe
+      // para voltar ao que estava gravado.
+      let novo;
+      if(doInicio) novo=st.orig[k]||'';
+      else if(_fornCad===null) return;
+      else novo=f?(f[k]||''):'';
+      // Gravado na compra e igual ao do inicio: nao conta como troca.
+      if(doInicio && f && f[k] && novo && String(novo).trim()!==String(f[k]).trim()) diferente.push(k);
+      if(el.value!==novo){ el.value=novo; trocou.push(k); }
+      st.ultimo[k]=novo;
+    }else if(f && el.value.trim() && String(f[k]||'').trim()!==el.value.trim()){
+      diferente.push(k);   // digitado pela pessoa e diferente do cadastro
+    }
+  });
+  if(!nome||_fornCad===null){ dica.style.display='none'; return; }
+  dica.style.display='block';
+  if(!f){
+    dica.style.color='var(--gray-4)';
+    dica.innerHTML='Este fornecedor não está no cadastro. Para cadastrar: <strong>📇 Cadastros</strong>, no portal.'+
+      (trocou.length?' Os dados de pagamento do fornecedor anterior foram tirados.':'');
+    return;
+  }
+  if(diferente.length){
+    dica.style.color='var(--red)';
+    dica.innerHTML='⚠️ Os dados de pagamento desta compra são <strong>diferentes do cadastro</strong> deste fornecedor'+
+      (f.pix?' (PIX do cadastro: '+escHtml(f.pix)+')':' (o cadastro dele não tem PIX)')+'. Confira com o fornecedor antes de pagar.';
+  }else{
+    const temPag=CAMPOS_PAG_FORN.some(function(k){ return f[k]; });
+    dica.style.color='var(--teal-dark)';
+    dica.innerHTML='✓ Fornecedor do cadastro'+
+      (!temPag?' — sem dados de pagamento no cadastro.':trocou.length?' — dados de pagamento preenchidos.':'.');
+  }
+}
+
 // ---- ENTRY MODAL ----
 function openModal(type,idx=null){
   modalType=type; editId=idx;
@@ -967,6 +1065,9 @@ function openModal(type,idx=null){
   }
   document.getElementById('modal-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('f-obra').focus(),100);
+  iniciarFornecedorCad('f');
+  aplicarFornecedorCad('f');
+  carregarFornecedoresCad().then(function(){ aplicarFornecedorCad('f'); });
 }
 function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); editId=null; }
 
@@ -2841,6 +2942,9 @@ function openModalManut(idx=null){
   calcManutTotal();
   document.getElementById('manut-overlay').classList.add('open');
   setTimeout(()=>document.getElementById('m-obra').focus(),100);
+  iniciarFornecedorCad('m');
+  aplicarFornecedorCad('m');
+  carregarFornecedoresCad().then(function(){ aplicarFornecedorCad('m'); });
 }
 
 function closeModalManut(){ document.getElementById('manut-overlay').classList.remove('open'); manutEditId=null; }
