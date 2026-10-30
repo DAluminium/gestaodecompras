@@ -2587,6 +2587,8 @@ function blocoPedido(type,i,r){
   const p=r&&r.pedido;
   if(!p||!p.texto) return '';
   const txt=escHtml(p.texto).replace(/\n/g,'<br>');
+  const excluir=podeReabrirPedido()?'<button type="button" onclick="excluirAvisoPedido(\''+type+'\','+i+')" '+
+    'style="margin:5px 0 0 5px;background:#fff;border:1px solid #E6B8B8;border-radius:6px;padding:4px 10px;color:#B71C1C;font-weight:600;font-size:11.5px;cursor:pointer;font-family:inherit">Excluir aviso</button>':'';
   if(p.feito){
     return '<span class="td-by" style="display:block;margin-top:4px;white-space:normal;'+
       'background:#E8F5E9;border:1px solid #A5D6A7;border-radius:6px;padding:5px 7px;color:#2E7D32">'+
@@ -2596,7 +2598,7 @@ function blocoPedido(type,i,r){
       new Date(p.feito.em).toLocaleDateString('pt-BR')+
       '<span style="display:block;color:#558B2F;margin-top:2px">'+txt+'</span>'+
       (podeReabrirPedido() ? '<button type="button" onclick="reabrirPedido(\''+type+'\','+i+')" '+
-        'style="margin-top:5px;background:#fff;border:1px solid #A5D6A7;border-radius:6px;padding:4px 10px;color:#2E7D32;font-weight:600;font-size:11.5px;cursor:pointer;font-family:inherit">Voltar para pendente</button>' : '')+'</span>';
+        'style="margin-top:5px;background:#fff;border:1px solid #A5D6A7;border-radius:6px;padding:4px 10px;color:#2E7D32;font-weight:600;font-size:11.5px;cursor:pointer;font-family:inherit">Voltar para pendente</button>' : '')+excluir+'</span>';
   }
   const cob=((p.cobrancas||[]).length);
   const btnEstilo='border:none;border-radius:6px;padding:4px 10px;font-weight:600;'+
@@ -2616,7 +2618,7 @@ function blocoPedido(type,i,r){
     '⏳ Aguardando <strong>'+escHtml(nomesDoPedido(p))+'</strong> — pedido por '+escHtml(p.por||'—')+' '+textoDias(diasDesde(p.em))+
     (cob?' · '+cob+' cobrança'+(cob>1?'s':''):'')+
     '<span style="display:block;margin:3px 0 6px;color:#6D5600">'+txt+'</span>'+
-    botoes+'</span>';
+    botoes+excluir+'</span>';
 }
 
 // Dentro da janela de editar: diz em que pe esta o pedido daquela obra. Sem
@@ -2670,14 +2672,57 @@ function podeReabrirPedido(){
   const papel=papelDoCracha();
   return papel==='admin'||papel==='gerente';
 }
-function reabrirPedido(type,i){
+function confirmarAvisoSistema(titulo,mensagem,botao){
+  return new Promise(function(resolve){
+    const anterior=document.activeElement;
+    const janela=document.createElement('dialog');
+    janela.className='modal';
+    janela.style.cssText='border:0;padding:0;color:var(--gray-6)';
+    janela.setAttribute('aria-labelledby','confirmar-aviso-titulo');
+    janela.setAttribute('aria-describedby','confirmar-aviso-texto');
+    janela.innerHTML='<div class="modal-header"><div class="modal-title" id="confirmar-aviso-titulo"></div></div>'+
+      '<div class="modal-body" id="confirmar-aviso-texto" style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5"></div>'+
+      '<div class="modal-footer"><button type="button" class="btn btn-outline" data-cancelar autofocus>Cancelar</button>'+
+      '<button type="button" class="btn btn-teal" data-confirmar></button></div>';
+    janela.querySelector('.modal-title').textContent=titulo;
+    janela.querySelector('.modal-body').textContent=mensagem;
+    janela.querySelector('[data-confirmar]').textContent=botao;
+    janela.querySelector('[data-cancelar]').onclick=function(){ janela.close('cancelar'); };
+    janela.querySelector('[data-confirmar]').onclick=function(){ janela.close('confirmar'); };
+    janela.addEventListener('keydown',function(e){ e.stopPropagation(); });
+    janela.addEventListener('close',function(){
+      const confirmou=janela.returnValue==='confirmar';
+      janela.remove();
+      if(anterior&&anterior.isConnected) anterior.focus();
+      resolve(confirmou);
+    },{once:true});
+    document.body.appendChild(janela);
+    janela.showModal();
+  });
+}
+async function excluirAvisoPedido(type,i){
+  if(!podeReabrirPedido()){
+    alert('Só o gerente ou o administrador pode excluir o aviso.'); return;
+  }
+  const r=(data[type]||[])[i], p=r&&r.pedido;
+  if(!p||!p.texto) return;
+  if(!await confirmarAvisoSistema('Excluir aviso','Excluir o aviso de "'+r.obra+'"?\n\n'+p.texto+
+    '\n\nSomente o aviso será retirado. A compra e os anexos serão mantidos. A exclusão ficará registrada no histórico.','Excluir aviso')) return;
+  if(!podeReabrirPedido()||(data[type]||[]).indexOf(r)<0||r.pedido!==p) return;
+  logAction(usuarioLogado()||'—','Excluiu aviso de material',r,
+    (p.feito?'Concluído':'Pendente')+' — pedido por '+(p.por||'—')+': '+p.texto);
+  r.pedido=null;
+  persist(); render();
+}
+async function reabrirPedido(type,i){
   if(!podeReabrirPedido()){
     alert('Só o gerente ou o administrador pode voltar o pedido para pendente.');
     return;
   }
   const r=(data[type]||[])[i], p=r&&r.pedido;
   if(!p||!p.feito) return;
-  if(!confirm('Voltar o pedido de "'+r.obra+'" para pendente?\n\nO aviso ficará amarelo, aguardando o material novamente. O texto do pedido será mantido.')) return;
+  if(!await confirmarAvisoSistema('Voltar para pendente','Voltar o pedido de "'+r.obra+'" para pendente?\n\nO aviso ficará amarelo, aguardando o material novamente. O texto do pedido será mantido.','Voltar para pendente')) return;
+  if(!podeReabrirPedido()||(data[type]||[]).indexOf(r)<0||r.pedido!==p||!p.feito) return;
   const eu=usuarioLogado()||'—';
   if(!p.reaberturas) p.reaberturas=[];
   p.reaberturas.push({por:eu,em:new Date().toISOString(),feito:p.feito});
