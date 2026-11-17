@@ -196,6 +196,9 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
     <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Sair">
       <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sair
     </button>
+    <button class="btn btn-ghost btn-sm" onclick="abrirRelatorioProducao()" title="Material em produção: o que está pago, parcial e a pagar, com as previsões">
+      <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Relatório
+    </button>
     <button class="btn btn-ghost btn-sm" onclick="imprimirCaderno()">
       <svg class="icon" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir caderno
     </button>
@@ -237,6 +240,13 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
     <input id="search-input" type="text" placeholder="Buscar por obra, contrato, fornecedor, material..." oninput="onSearch(this.value)">
     <span class="search-count" id="search-count"></span>
     <span class="search-clear" id="search-clear" onclick="clearSearch()">✕</span>
+    <select id="filtro-pg" onchange="filtroPg=this.value;render()" title="Filtrar pela situação do pagamento" style="font-size:12px;padding:5px 8px;border-radius:var(--radius);border:1px solid var(--gray-3);margin-left:8px;background:white">
+      <option value="">Pagamento: todos</option>
+      <option value="sem">Sem pedido feito</option>
+      <option value="apagar">⏳ A pagar (nada pago)</option>
+      <option value="parcial">◐ Pago parcial</option>
+      <option value="pago">✅ Pago</option>
+    </select>
   </div>
 
   <div id="panel-urgente" class="panel">
@@ -247,7 +257,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
       </button>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Status</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
+      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Comprar até</th><th>Pagamento</th><th>Pronto previsto</th><th>Status</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
       <tbody id="tbody-urgente"></tbody>
     </table></div>
     <div class="panel-footer">Total em aberto: <strong id="t-urgente">R$ 0,00</strong></div>
@@ -261,7 +271,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
       </button>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Status</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
+      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Comprar até</th><th>Pagamento</th><th>Pronto previsto</th><th>Status</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
       <tbody id="tbody-importante"></tbody>
     </table></div>
     <div class="panel-footer">Total: <strong id="t-importante">R$ 0,00</strong></div>
@@ -272,7 +282,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
       <div class="panel-title"><span class="badge badge-paid" id="badge-p">0</span>Obras pagas</div>
     </div>
     <div class="table-wrap"><table>
-      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Data Pag.</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
+      <thead><tr><th>#</th><th>Obra / Cliente</th><th>Material</th><th>Nº Orç.</th><th>Fornecedor</th><th>Valor</th><th>Data Orç.</th><th>Entrega</th><th>Data Pag.</th><th>Pagamento</th><th>Pronto previsto</th><th>Status</th><th>Anexos</th><th style="text-align:right">Ações</th></tr></thead>
       <tbody id="tbody-pago"></tbody>
     </table></div>
     <div class="panel-footer">Total pago: <strong id="t-pago">R$ 0,00</strong></div>
@@ -381,7 +391,7 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
             <option value="especial">Especial — alerta 60 dias antes</option>
           </select>
         </div>
-        <div class="form-group"><label>Data de entrega da obra <span style="color:var(--red)">*</span></label><input id="f-entrega" type="date"></div>
+        <div class="form-group"><label>Data de entrega da obra <span style="color:var(--red)">*</span></label><input id="f-entrega" type="date"><span class="note" id="f-entrega-obra" style="display:none"></span></div>
 
         <!-- NOTIFICAÇÃO -->
         <div class="form-group span2" id="notif-group" style="background:var(--amber-light);border-radius:var(--radius);padding:10px 12px">
@@ -421,6 +431,22 @@ cursor:pointer;padding:4px;display:flex;align-items:center;color:#9AA1AB;line-he
         <div class="form-group"><label>Transportadora</label><input id="f-transportadora" type="text" placeholder="Nome da transportadora"></div>
         <div class="form-group"><label>Código de rastreio</label><input id="f-rastreio" type="text" placeholder="Código informado pela transportadora"></div>
         <div class="form-group span2"><label>Observação</label><textarea id="f-obs" rows="2" placeholder="Ex: aguardando o cliente concluir a alvenaria — prazo a redefinir" style="width:100%;padding:8px 10px;border:1px solid var(--gray-3);border-radius:var(--radius);font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box"></textarea></div>
+        <div class="section-divider" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-4);padding:10px 0 6px;margin-top:2px;border-top:1px solid var(--gray-2);grid-column:1/-1">Pagamento combinado e material</div>
+        <div class="form-group span2"><label>Condição de pagamento</label>
+          <select id="f-pg-condicao" onchange="pgTrocarCondicao()"></select>
+          <span class="note">Ao escolher, as parcelas são montadas com o valor do orçamento. Dá para ajustar valor, data e descrição de cada uma.</span></div>
+        <div class="form-group span2" id="f-pg-bloco" style="display:none">
+          <div id="f-pg-parcelas"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn btn-outline btn-sm" onclick="pgNovaParcela()">+ Parcela</button>
+            <span class="note" id="f-pg-soma" style="margin:0"></span>
+          </div>
+        </div>
+        <div class="form-group"><label>Material no fornecedor</label><select id="f-mat-situacao" onchange="pgRender()"></select></div>
+        <div class="form-group"><label>Previsão de pronto</label><input id="f-mat-pronto" type="date" onchange="pgRender()">
+          <span class="note" id="f-mat-dica"></span></div>
+        <div class="form-group"><label>Previsão de chegada</label><input id="f-mat-chegada" type="date">
+          <span class="note">Quando vem pela transportadora. Use junto com a transportadora e o rastreio, mais abaixo.</span></div>
         <div class="section-divider" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-4);padding:10px 0 6px;margin-top:2px;border-top:1px solid var(--gray-2);grid-column:1/-1">Dados para pagamento (opcional)</div>
         <div class="form-group span2"><label>Chave Pix</label><input id="f-pix" type="text" placeholder="CNPJ, CPF, e-mail, telefone ou chave aleatória"></div>
         <div class="form-group span2"><label>Favorecido (nome na conta)</label><input id="f-pix-nome" type="text" placeholder="Ex: Morais Alumínio Ltda"></div>
@@ -749,7 +775,7 @@ const INITIAL = {
   ]
 };
 
-let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[],usuarios:[]};
+let data = {urgente:[],importante:[],pago:[],manutencao:[],manutComprada:[],historico:[],usuarios:[],cotacoesGuardadas:[]};
 let dataReady=false;
 let currentTab = 'urgente';
 let editId = null;
@@ -773,6 +799,113 @@ async function uploadToCloudinary(file){
 // ---- HELPERS ----
 function fmtBR(v){ return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtDate(d){ if(!d||d==='—')return'—'; try{ const[y,m,dd]=d.split('-'); return`${dd}/${m}/${y}`; }catch{ return d||'—'; } }
+// ---- DATAS DA OBRA E PRAZO DE COMPRA (pedido do Ander, 16/11/2026) ----
+// O Gerenciamento de Obra grava em `datasObra` a medicao (prevista e
+// realizada), a projecao de entrada na obra e a entrega, sempre que o
+// contrato e salvo la. Aqui essas datas so sao lidas.
+// O prazo de comprar passou a contar da ENTRADA NA OBRA, e nao mais da
+// entrega: o material tem que estar na fabrica antes de a equipe ir para a
+// obra. Sem projecao de entrada (pedido sem vinculo com a Obra, ou obra ainda
+// sem previsao), vale a entrega, como era antes. Dias corridos.
+function datasDaObra(r){
+  return (r && r.datasObra && typeof r.datasObra==='object') ? r.datasObra : null;
+}
+function marcoDoPrazo(r){
+  const d=datasDaObra(r);
+  if(d && d.projEntrada) return {data:d.projEntrada, nome:'entrada na obra'};
+  if(r && r.entrega && r.entrega!=='—') return {data:r.entrega, nome:'entrega'};
+  return null;
+}
+function diasDeAntecedencia(r){ return (r&&r.tipo==='especial')?60:30; }
+function comprarAte(r){
+  const m=marcoDoPrazo(r);
+  if(!m) return '';
+  const [y,mo,d]=String(m.data).split('-').map(Number);
+  if(!y||!mo||!d) return '';
+  const dt=new Date(y, mo-1, d-diasDeAntecedencia(r));
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+// Dias de hoje ate o marco (entrada na obra ou entrega). null sem data.
+// A data e lida no horario LOCAL. O jeito antigo, new Date('2026-11-17'),
+// le como meia-noite de Londres — em Porto Velho (UTC-4) vira 16/11 as 20h,
+// e o aviso dizia "entrega HOJE" um dia antes e contava um dia a mais de
+// atraso (achado em 16/11/2026).
+function diasAteOMarco(r){
+  const m=marcoDoPrazo(r);
+  if(!m) return null;
+  return diasAte(m.data);
+}
+// Embaixo da entrega, na tabela: o que veio da Obra.
+function blocoDatasObra(r){
+  const d=datasDaObra(r);
+  if(!d) return '';
+  const med=d.medicaoFeita
+    ? '📐 Medida '+fmtDate(d.medicaoFeita)
+    : (d.medicao?'📐 Med. prevista '+fmtDate(d.medicao):'');
+  return '<span class="td-by" style="color:var(--teal-dark)" title="Datas do Gerenciamento de Obra">'+
+    '🏗️ vem da Obra'+(d.projEntrada?' · entrada '+fmtDate(d.projEntrada):'')+(med?'<br>'+med:'')+'</span>';
+}
+// ---- ONDE AINDA DA PARA COMPRAR (pedido do Ander, 16/11/2026) ----
+// A compra depende do caixa. Fora do estado e mais barato, mas leva 30 dias
+// (padrao) ou 60 (especial); se o caixa nao deixar comprar a tempo, os dias
+// passam e a compra tem que vir para dentro do estado:
+//   Padrao   — fora do estado ate entrada − 30 dias corridos; depois LOCAL
+//              ate a vespera util da entrada. Local quer dizer Ji-Parana (2
+//              dias uteis) ou Porto Velho (retira no mesmo dia): o Ander pediu
+//              para nao separar as cidades, porque o comprador consegue o
+//              preco de Ji-Parana em Porto Velho (16/11/2026).
+//   Especial — so fora do estado, ate entrada − 60 dias: no estado quase
+//              nunca se acha. Passou disso, e urgencia.
+// Dias uteis aqui pulam so sabado e domingo (o Compras nao tem feriados).
+function voltaDiasUteisIso(iso, dias){
+  const [y,mo,d]=String(iso).split('-').map(Number);
+  const dt=new Date(y, mo-1, d);
+  let tirados=0;
+  while(tirados<dias){ dt.setDate(dt.getDate()-1); const w=dt.getDay(); if(w!==0&&w!==6) tirados++; }
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function diasAte(iso){
+  const [y,mo,d]=String(iso).split('-').map(Number);
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  return Math.round((new Date(y,mo-1,d)-hoje)/(1000*60*60*24));
+}
+// As janelas de compra deste pedido, em ordem, e em qual delas estamos hoje.
+function faseDaCompra(r){
+  const m=marcoDoPrazo(r);
+  if(!m) return null;
+  const especial=r.tipo==='especial';
+  const janelas=[{onde:'Fora do estado', ate:comprarAte(r), cor:'var(--green)', icone:'🟢'}];
+  if(!especial){
+    janelas.push({onde:'Local', ate:voltaDiasUteisIso(m.data,1), cor:'var(--amber)', icone:'🟡'});
+  }
+  const atual=janelas.find(function(j){ return diasAte(j.ate)>=0; })||null;
+  return {marco:m, especial:especial, janelas:janelas, atual:atual,
+    // Ja nao da para comprar fora do estado? E a hora de trocar de fornecedor.
+    foraVenceu: diasAte(janelas[0].ate)<0};
+}
+// A coluna "Comprar até": a janela em que o pedido esta hoje e a seguinte.
+function celulaComprarAte(r){
+  const f=faseDaCompra(r);
+  if(!f) return '<td>—</td>';
+  if(!f.atual){
+    const txt=f.especial
+      ? 'Prazo de fora venceu em '+fmtDate(f.janelas[0].ate)+'. Especial quase nunca tem no estado: urgente.'
+      : 'Nem a compra local chega a tempo da '+f.marco.nome+' ('+fmtDate(f.marco.data)+').';
+    return '<td style="min-width:150px"><span style="color:var(--red);font-weight:700">🔴 Atrasado</span>'+
+      '<span class="td-by" style="white-space:normal">'+txt+'</span></td>';
+  }
+  const a=f.atual;
+  const falta=diasAte(a.ate);
+  const quando=falta===0?'é hoje':'faltam '+falta+' dia'+(falta===1?'':'s');
+  const idx=f.janelas.indexOf(a);
+  const prox=f.janelas[idx+1];
+  return '<td style="min-width:150px">'+
+    '<span style="color:'+a.cor+';font-weight:700">'+a.icone+' '+a.onde+'</span>'+
+    '<span class="td-by" style="white-space:normal">até <b>'+fmtDate(a.ate)+'</b> · '+quando+
+    (idx>0?'<br>prazo de fora venceu em '+fmtDate(f.janelas[0].ate):'')+
+    (prox?'<br>depois: '+prox.onde+' até '+fmtDate(prox.ate):'')+
+    '</span></td>';
+}
 function statusClass(s){ return s==='Aguardando cliente'?'pill-aguardando':s==='Atrasada'?'pill-atrasada':s==='OK'?'pill-ok':'pill-pendente'; }
 function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmtSize(b){ return b>1048576?(b/1048576).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB'; }
@@ -787,11 +920,8 @@ function persist(){ localStorage.setItem('dalum-data',JSON.stringify(data)); }
 function reclassifyAll(){
   const today = new Date(); today.setHours(0,0,0,0);
 
-  function getDiff(r){
-    if(!r.entrega||r.entrega==='—') return null;
-    const dt=new Date(r.entrega); dt.setHours(0,0,0,0);
-    return Math.round((dt-today)/(1000*60*60*24));
-  }
+  // Conta a partir da entrada na obra quando a Obra informou (16/11/2026).
+  function getDiff(r){ return diasAteOMarco(r); }
 
   // Move importante → urgente when lead time is compromised
   const toUrgente=[];
@@ -844,7 +974,7 @@ function mostrarAbaHistorico(){
 function renderTable(type,isPago){
   const tbody = document.getElementById('tbody-'+type);
   const allRows = data[type];
-  const rows = searchTerm ? allRows.filter(matchesSearch) : allRows;
+  const rows = allRows.filter(function(r){ return (!searchTerm || matchesSearch(r)) && passaFiltroPg(r, type); });
 
   if(searchTerm){
     const total=[...data.urgente,...data.importante,...data.pago].filter(matchesSearch).length;
@@ -854,8 +984,23 @@ function renderTable(type,isPago){
   }
 
   if(!rows.length){
-    const msg=searchTerm?`Nenhum resultado para "<strong>${searchTerm}</strong>"`:'Nenhum orçamento. Clique em "Novo orçamento" para começar.';
-    tbody.innerHTML=`<tr class="empty-row"><td colspan="11">${msg}</td></tr>`;
+    let msg=searchTerm?`Nenhum resultado para "<strong>${escHtml(searchTerm)}</strong>" nesta aba`:'Nenhum orçamento. Clique em "Novo orçamento" para começar.';
+    // A busca acha em outra aba? Diz onde e leva ate la (pedido do Ander,
+    // 16/11/2026: "1 resultado" no topo e a aba aberta vazia confundia).
+    if(searchTerm){
+      const nomes={urgente:'Urgentes',importante:'Importantes',pago:'Obras pagas'};
+      const outras=['urgente','importante','pago'].filter(function(L){ return L!==type; }).map(function(L){
+        return {L:L, n:(data[L]||[]).filter(matchesSearch).length};
+      }).filter(function(x){ return x.n>0; });
+      if(outras.length) msg+='<br><span style="display:inline-flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center">'+
+        outras.map(function(x){
+          return '<button type="button" class="btn btn-outline btn-sm" onclick="setTab(\''+x.L+'\',document.querySelector(\'.tab-btn[onclick*=&quot;'+x.L+'&quot;]\'))">'+
+            'Ver '+x.n+' em '+nomes[x.L]+'</button>';
+        }).join('')+'</span>';
+    }
+    // colspan largo: a tabela ganhou colunas (Comprar até, Pagamento...) e
+    // com 11 a mensagem nao ocupava a largura toda.
+    tbody.innerHTML=`<tr class="empty-row"><td colspan="20">${msg}</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map((r)=>{
@@ -866,7 +1011,7 @@ function renderTable(type,isPago){
     const tipoLabel=!isPago?(r.tipo==='especial'
       ?`<span class="badge-especial">✦ Especial</span> `
       :`<span class="badge-padrao">Padrão</span> `):'';
-    const statusCell=isPago?`<td><span class="pill pill-pago">Pago</span></td>`:`<td>${tipoLabel}<span class="pill ${statusClass(r.status)}">${r.status||'Pendente'}</span></td>`;
+    const statusCell=isPago?`<td><span class="pill pill-pago">Pago</span>${resumoPagMat(r)}</td>`:`<td>${tipoLabel}<span class="pill ${statusClass(r.status)}">${r.status||'Pendente'}</span>${resumoPagMat(r)}</td>`;
     const extraCol=isPago?`<td>${fmtDate(r.dataPag)}</td>`:'';
     const hasFiles=(r.attachments&&r.attachments.length>0);
     const attachBtn=`<td><button class="act act-attach ${hasFiles?'has-files':''}" onclick="openAttach('${type}',${i})" title="${hasFiles?r.attachments.length+' anexo(s)':'Adicionar anexo'}">
@@ -881,21 +1026,24 @@ function renderTable(type,isPago){
         <button class="act" onclick="duplicateEntry('${type}',${i})" title="Duplicar (outro fornecedor, mesma obra)"><svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         ${type==='importante'?`<button class="act act-move-urgent" onclick="moveEntry('importante','urgente',${i})" title="Mover para Urgentes 🔴"><svg class="icon" viewBox="0 0 24 24"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg></button>`:''}
         ${type==='urgente'?`<button class="act act-move-important" onclick="moveEntry('urgente','importante',${i})" title="Mover para Importantes 🟡"><svg class="icon" viewBox="0 0 24 24"><polyline points="17 6 12 11 7 6"/><polyline points="17 13 12 18 7 13"/></svg></button>`:''}
-        <button class="act act-pay" onclick="markPaid('${type}',${i})" title="Marcar como pago"><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="act act-pay" onclick="fazerPedido('${type}',${i})" title="${r.pedidoFeito?'Pedido feito — clique para desfazer':'Fazer pedido (manda as parcelas para o Financeiro)'}" ${r.pedidoFeito?'style="background:var(--green-light);color:var(--green);border-color:var(--green)"':''}><svg class="icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></button>
         <button class="act act-del" onclick="removeEntry('${type}',${i})" title="Remover"><svg class="icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
       </td>`;
     const obsLabel=r.obs?`<span class="td-by" style="color:#5E35B1;display:block;margin-top:2px;white-space:normal">📝 ${r.obs}</span>`:'';
     const pixInfo=r.pix?`<span class="td-by" style="display:flex;align-items:center;gap:3px"><svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>${r.pix}</span>`:'';
     return`<tr>
       <td class="td-num">${i+1}</td>
-      <td class="td-obra">${highlight(r.obra)}${contratoLabel}${byLabel}${obsLabel}${blocoPedido(type,i,r)}</td>
+      <td class="td-obra">${highlight(r.obra)}${contratoLabel}${byLabel}${obsLabel}${blocoPedido(type,i,r)}${blocoPedidoFeito(r)}</td>
       <td>${r.material||'—'}</td>
       <td style="color:var(--gray-4)">${r.nrOrc||'—'}</td>
       <td>${r.fornecedor}${pixInfo}</td>
       <td class="td-valor">${val}</td>
       <td>${fmtDate(r.dataOrc)}</td>
-      <td>${fmtDate(r.entrega)}${r.medicao?`<span class="td-by" style="color:var(--teal-dark)">📐 Med: ${fmtDate(r.medicao)}</span>`:''}</td>
+      <td>${fmtDate(r.entrega)}${r.medicao?`<span class="td-by" style="color:var(--teal-dark)">📐 Med: ${fmtDate(r.medicao)}</span>`:''}${blocoDatasObra(r)}</td>
+      ${isPago?'':celulaComprarAte(r)}
+      ${isPago?'':celulaPagamento(r)+celulaProntoPrevisto(r)}
       ${extraCol}
+      ${isPago?celulaPagamento(r)+celulaProntoPrevisto(r):''}
       ${statusCell}
       ${attachBtn}
       ${actions}
@@ -1079,6 +1227,8 @@ function openModal(type,idx=null){
     popularNotificarSelect();
     limparMarcados();            // marcacao de outra obra nao vem junto
     mostrarStatusPedido(r.pedido);
+    mostrarDatasObraNoModal(r);
+    carregarPagMatNoModal(r);
     document.getElementById('modal-title').textContent='Editar orçamento';
   } else {
     ['f-obra','f-contrato','f-material','f-nrorc','f-fornecedor','f-valor','f-dataorc','f-entrega','f-datapag','f-pix','f-pix-nome','f-banco','f-conta','f-medicao','f-obs'].forEach(id=>document.getElementById(id).value='');
@@ -1090,6 +1240,8 @@ function openModal(type,idx=null){
     limparMarcados();   // abre sempre sem ninguém marcado
     document.getElementById('f-pedido').value='';
     mostrarStatusPedido(null);
+    mostrarDatasObraNoModal(null);
+    carregarPagMatNoModal(null);
     // Auto-fill nome do usuário logado
   const _nomeLogado=sessionStorage.getItem('dalum-user')||lastBy||'';
   document.getElementById('f-by').value=_nomeLogado;
@@ -1121,6 +1273,7 @@ function duplicateEntry(type,idx){
   document.getElementById('f-status').value='Pendente';
   document.getElementById('f-by').value=usuarioLogado()||r.by||'';
   mostrarStatusPedido(null);
+  carregarPagMatNoModal(null);   // outro fornecedor: outro combinado
   document.getElementById('modal-title').textContent='Duplicar orçamento — outro fornecedor';
   iniciarFornecedorCad('f');         // dados de pagamento seguem o fornecedor novo
   aplicarFornecedorCad('f');
@@ -1162,10 +1315,24 @@ function saveEntry(){
     // do zero a cada gravacao: sem esta linha, editar qualquer campo apagaria
     // o pedido em aberto — foi exatamente o que ja aconteceu com os anexos.
     pedido: editId!==null ? (data[modalType][editId].pedido||null) : null,
+    // As datas que o Gerenciamento de Obra mandou (16/11/2026). Mesmo motivo
+    // do pedido acima: sem isto, editar o orcamento apagaria o vinculo, e o
+    // prazo voltaria a contar da entrega ate a Obra salvar de novo.
+    datasObra: editId!==null ? (data[modalType][editId].datasObra||null)
+      : (duplicandoDe ? (duplicandoDe.datasObra||null) : null),
+    // Pedido feito (16/11/2026): sem esta linha, editar o orcamento apagaria
+    // a marca do pedido e o vinculo com as contas do Financeiro.
+    pedidoFeito: editId!==null ? (data[modalType][editId].pedidoFeito||null) : null,
+    // Pagamento combinado e material (16/11/2026).
+    pagamento: lerPagamentoDoModal(editId!==null ? data[modalType][editId] : null),
+    // 'producao' e nao 'material': 'material' ja e o NOME do material
+    // (Perfil Aluminio...). Usar o mesmo nome apagava esse texto.
+    producao: lerMaterialDoModal(editId!==null ? data[modalType][editId] : null),
   };
   if(modalType==='pago') entry.dataPag=document.getElementById('f-datapag').value;
   if(!entry.obra||!entry.contrato){ alert('Obra / Cliente e Nº do Contrato são obrigatórios.'); return; }
   if(!entry.entrega||entry.entrega==='—'){ alert('Data de entrega da obra é obrigatória.'); document.getElementById('f-entrega').focus(); return; }
+  if(!confirmarSomaParcelas(entry)) return;
   const isEdit = editId!==null;
   // Identificador proprio do registro. E o que permite saber, mais tarde, que
   // duas versoes sao do MESMO lancamento — sem ele a juncao nao consegue
@@ -1211,6 +1378,9 @@ function saveEntry(){
   }
 
   if(isEdit){ data[modalType][editId]=entry; } else { data[modalType].push(entry); }
+  // Pedido ja feito: parcelas ou previsao mudaram, o Financeiro acompanha.
+  // Depois, ja pago e agora a caminho? Sai da lista (aplicarSituacaoDoFinanceiro).
+  if(entry.pedidoFeito) setTimeout(async function(){ await enviarPedidosAoFinanceiro([entry],[]); aplicarSituacaoDoFinanceiro(); },0);
   logAction(byVal, isEdit?'Editou':'Criou', entry, isEdit?'Dados atualizados':duplicandoDe?('Cotação duplicada do orçamento de '+(duplicandoDe.fornecedor||'—')):'Novo orçamento lançado');
   if(_paraQuem.length && _textoPedido){
     logAction(_quemPede,'Pediu material',entry,
@@ -1265,7 +1435,9 @@ function abrirDetalhesPago(idx){
     ['Tipo de projeto',r.tipo==='especial'?'Especial':'Padrão'],['Lançado por',r.by],
     ['Data de medição',fmtDate(r.medicao)],['Dias úteis',r.diasUteis],
     ['Chave Pix',r.pix],['Favorecido',r.pixNome],['Banco',r.banco],['Agência / Conta',r.conta],
-    ['Observação',r.obs],['Pedido de material',r.pedido&&r.pedido.texto]];
+    ['Observação',r.obs],['Pedido de material',r.pedido&&r.pedido.texto],
+    ['Pagamento combinado', r.pagamento&&r.pagamento.condicao ? rotuloDe(CONDICOES_PAGAMENTO,r.pagamento.condicao)+
+      (r.pagamento.parcelas||[]).map(function(p){ return '\n• '+(p.desc||'Parcela')+': R$ '+fmtBR(p.valor)+(p.venc?' · venc. '+fmtDate(p.venc):''); }).join('') : '']];
   const el=document.createElement('div');
   el.id='detalhes-pago-overlay'; el.className='modal-overlay open';
   el.innerHTML='<div class="modal"><div class="modal-header"><div class="modal-title">Detalhes da compra paga</div>'+
@@ -1278,6 +1450,10 @@ function abrirDetalhesPago(idx){
       (podeCorrigirContratoPago()?'':'readonly')+'><span class="note">Correção disponível para gerente e administrador.</span></div>'+
     '<div class="form-group"><label>Transportadora</label><input id="pago-transportadora" value="'+escHtml(r.transportadora||'')+'" '+(ehConsulta()?'readonly':'')+'></div>'+
     '<div class="form-group"><label>Código de rastreio</label><input id="pago-rastreio" value="'+escHtml(r.rastreio||'')+'" '+(ehConsulta()?'readonly':'')+'></div>'+
+    '<div class="form-group"><label>Material no fornecedor</label><select id="pago-mat-situacao" '+(ehConsulta()?'disabled':'')+'>'+
+      SITUACOES_MATERIAL.map(function(p){ return '<option value="'+p[0]+'"'+(((r.producao||{}).situacao||'')===p[0]?' selected':'')+'>'+escHtml(p[1])+'</option>'; }).join('')+'</select></div>'+
+    '<div class="form-group"><label>Previsão de pronto</label><input type="date" id="pago-mat-pronto" value="'+escHtml((r.producao||{}).previsaoPronto||'')+'" '+(ehConsulta()?'readonly':'')+'></div>'+
+    '<div class="form-group"><label>Previsão de chegada</label><input type="date" id="pago-mat-chegada" value="'+escHtml((r.producao||{}).previsaoChegada||'')+'" '+(ehConsulta()?'readonly':'')+'></div>'+
     '</div></div><div class="modal-footer"><button class="btn btn-outline" onclick="fecharDetalhesPago()">Fechar</button>'+
     (!ehConsulta()?'<button class="btn btn-teal" onclick="salvarDetalhesPago()">Salvar alterações</button>':'')+'</div></div>';
   document.body.appendChild(el);
@@ -1296,26 +1472,443 @@ function salvarDetalhesPago(){
   if(podeCorrigirContratoPago()) r.contrato=contrato;
   r.transportadora=document.getElementById('pago-transportadora').value.trim();
   r.rastreio=document.getElementById('pago-rastreio').value.trim();
+  {
+    const sit=document.getElementById('pago-mat-situacao').value;
+    const prev=document.getElementById('pago-mat-pronto').value;
+    const cheg=document.getElementById('pago-mat-chegada').value;
+    const ant=r.producao||null;
+    if((sit||prev||cheg) && !(ant && ant.situacao===sit && (ant.previsaoPronto||'')===prev && (ant.previsaoChegada||'')===cheg))
+      r.producao={situacao:sit, previsaoPronto:prev, previsaoChegada:cheg, em:new Date().toISOString(), por:usuarioLogado()||'—'};
+  }
   logAction(usuarioLogado()||'—','Atualizou compra paga',r,
     'Transportadora e rastreio atualizados'+(r.contrato!==anterior?' — contrato: '+(anterior||'—')+' → '+r.contrato:''));
   persist(); render(); fecharDetalhesPago();
 }
 function editEntry(type,idx){ if(type==='pago'){ abrirDetalhesPago(idx); return; } openModal(type,idx); }
-function removeEntry(type,idx){
-  if(recusarExcluir()) return;
+async function removeEntry(type,idx){
+  if(!podeExcluir()){ await dlgAviso('Só gerente ou administrador', 'Só o gerente ou o administrador pode excluir.\n\nPeça a quem gerencia este módulo.'); return; }
   const r=data[type][idx];
-  const user=prompt('Seu nome (obrigatório para registrar a remoção):',lastBy||'');
-  if(!user||!user.trim()){ alert('Nome obrigatório para registrar a remoção.'); return; }
-  if(!confirm(`Remover "${r.obra}" e todos os seus anexos?`)) return;
+  const user=await nomeDeQuemUsa('a remoção');
+  if(!user) return;
+  if(!await dlgConfirmar('Remover', `Remover "${r.obra}" e todos os seus anexos?`+
+    (r.pedidoFeito?'\n\nO pedido já foi feito: as parcelas ainda não pagas saem do Contas a Pagar do Financeiro.':''), 'Remover', 'Cancelar')) return;
+  if(data[type][idx]!==r) return;     // a lista mudou enquanto a janela estava aberta
   (r.attachments||[]).forEach(()=>{});
   logAction(user.trim(),'Removeu',r,`Valor: R$ ${fmtBR(r.valor)}`);
+  if(r.pedidoFeito) enviarPedidosAoFinanceiro([],[r.id]);
   data[type].splice(idx,1);
   persist(); render();
 }
-function markPaid(type,idx){
+// ---- FAZER PEDIDO -> CONTAS A PAGAR DO FINANCEIRO (pedido do Ander, 16/11/2026) ----
+// Cotacao nao vai para o Financeiro: so o pedido feito. No clique, cada
+// parcela combinada vira conta a pagar la (pelo Worker, acao
+// 'compras-a-pagar'), e as outras cotacoes da mesma obra e material saem da
+// lista para 'cotacoesGuardadas' — guardadas, porque o fornecedor escolhido
+// pode faltar com um produto ou demorar, e ai se volta a outro.
+// Quem da baixa e o Financeiro. O Compras le so o que foi pago (acao
+// 'compras-situacao') e, quitado, leva o pedido sozinho para Obras pagas.
+let _situacaoPg={};      // pedidoId -> parcelaId -> {pago, pagoEm, valor}
+let _situacaoLidaEm=0;
+function situacaoDaParcela(pid, parId){ return ((_situacaoPg[pid]||{})[parId])||null; }
+// Quanto do pedido ja foi pago no Financeiro. null se nao ha pedido feito.
+function pagoDoPedido(r){
+  if(!r||!r.pedidoFeito) return null;
+  const parcelas=(r.pagamento||{}).parcelas||[];
+  const total=centavos(parcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  const pago=centavos(parcelas.reduce(function(a,p){ const s=situacaoDaParcela(r.id,p.id); return a+(s?s.pago:0); },0));
+  return {total:total, pago:pago};
+}
+function parcelasParaFinanceiro(r){
+  const prev=(r.producao||{}).previsaoPronto||'';
+  return ((r.pagamento||{}).parcelas||[]).map(function(p){
+    return {id:p.id, desc:p.desc||'', valor:centavos(p.valor), venc:vencimentoDaParcela(p, prev)};
+  });
+}
+async function enviarPedidosAoFinanceiro(pedidos, cancelar){
+  const corpo={
+    pedidos:(pedidos||[]).map(function(r){
+      return {pedidoId:r.id, obra:r.obra||'', contrato:r.contrato||'', material:r.material||'',
+        fornecedor:r.fornecedor||'', nrPedido:(r.pedidoFeito&&r.pedidoFeito.nr)||'', parcelas:parcelasParaFinanceiro(r)};
+    }),
+    cancelar:cancelar||[]
+  };
+  let resultado={ok:false, erro:''};
+  try{
+    const resp=await fetch(WORKER_URL,{method:'POST',cache:'no-store',
+      headers:cabecalhos(SUPA_SISTEMA,{'Content-Type':'application/json','X-Action':'compras-a-pagar'}),
+      body:JSON.stringify(corpo)});
+    const j=await resp.json().catch(function(){ return {}; });
+    if(!resp.ok) resultado={ok:false, erro:j.erro||('erro '+resp.status)};
+    else { resultado={ok:true, feito:j.feito||{}}; if(Array.isArray(j.contas)) guardarSituacao(j.contas); }
+  }catch(e){ resultado={ok:false, erro:'sem conexão'}; }
+  // Anota no pedido se o Financeiro recebeu. Pendente e tentado de novo na
+  // proxima leitura da situacao.
+  let mudou=false;
+  (pedidos||[]).forEach(function(r){
+    if(!r.pedidoFeito) return;
+    const novo=resultado.ok?'ok':'pendente';
+    if(r.pedidoFeito.financeiro!==novo){ r.pedidoFeito.financeiro=novo; mudou=true; }
+  });
+  if(mudou){ persist(); }
+  render();
+  return resultado;
+}
+function guardarSituacao(contas){
+  const m={};
+  (contas||[]).forEach(function(c){
+    if(!m[c.pedido]) m[c.pedido]={};
+    m[c.pedido][c.parcela]={pago:Number(c.pago)||0, pagoEm:c.pagoEm||'', valor:Number(c.valor)||0, venc:c.venc||''};
+  });
+  _situacaoPg=m;
+  _situacaoLidaEm=Date.now();
+}
+// CONSERTO: um pedido nunca pode estar entre as cotacoes guardadas. Em
+// 16/11/2026 o proprio pedido do Osvaldo foi parar la (guardado "por causa
+// dele mesmo") e perdeu a marca de pedido feito, enquanto as parcelas
+// continuavam no Financeiro. Achado assim, ele volta para a lista de onde
+// saiu, com a marca de pedido de volta, e fica anotado no Historico.
+function consertarCotacoesGuardadas(){
+  if(ehConsulta()) return false;
+  const lista=data.cotacoesGuardadas||[];
+  let mudou=false;
+  for(let i=lista.length-1;i>=0;i--){
+    const c=lista[i];
+    const g=c.guardada||{};
+    const ehOProprioPedido=g.pedidoId && g.pedidoId===c.id;
+    if(!ehOProprioPedido && !c.pedidoFeito) continue;
+    const aba=g.aba==='importante'?'importante':'urgente';
+    const volta=Object.assign({},c);
+    delete volta.guardada;
+    if(!volta.pedidoFeito){
+      // A data de 'guardada.em' esta em UTC: 23h de Porto Velho ja e o dia
+      // seguinte la. Converte para a data local.
+      let dia=hojeIsoLocal();
+      const t=new Date(g.em||'');
+      if(!isNaN(t)) dia=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+      volta.pedidoFeito={em:dia, por:g.por||'—', nr:volta.nrOrc||'', financeiro:'pendente'};
+    }
+    lista.splice(i,1);
+    // Se por acaso ja existe na lista com o mesmo id, nao duplica.
+    if(!(data[aba]||[]).some(function(x){ return x.id===volta.id; })) data[aba].push(volta);
+    logAction('Sistema','Pedido devolvido à lista',volta,'Estava por engano entre as cotações guardadas (clique duplo no Fazer pedido)');
+    mudou=true;
+  }
+  return mudou;
+}
+async function atualizarSituacaoPagamentos(){
+  if(!lerToken()) return;
+  if(consertarCotacoesGuardadas()){ await persist(); render(); }
+  try{
+    const resp=await fetch(WORKER_URL+'?t='+Date.now(),{cache:'no-store',
+      headers:cabecalhos(SUPA_SISTEMA,{'X-Action':'compras-situacao'})});
+    if(!resp.ok) return;
+    const j=await resp.json();
+    guardarSituacao(j.contas||[]);
+  }catch(e){ return; }
+  // Pedido que nao chegou ao Financeiro: tenta de novo.
+  const pendentes=[...(data.urgente||[]),...(data.importante||[]),...(data.pago||[])]
+    .filter(function(r){ return r.pedidoFeito && r.pedidoFeito.financeiro==='pendente'; });
+  if(pendentes.length && !ehConsulta()) await enviarPedidosAoFinanceiro(pendentes,[]);
+  aplicarSituacaoDoFinanceiro();
+}
+// Entrada paga: o material passa a "Em producao". Tudo pago: vai para Obras
+// pagas, com a data do ultimo pagamento — sem ninguem clicar.
+function aplicarSituacaoDoFinanceiro(){
+  if(ehConsulta()) { render(); return; }
+  let mudou=false;
+  ['urgente','importante'].forEach(function(aba){
+    for(let i=(data[aba]||[]).length-1;i>=0;i--){
+      const r=data[aba][i];
+      if(!r.pedidoFeito || !_situacaoPg[r.id]) continue;
+      const parcelas=(r.pagamento||{}).parcelas||[];
+      const total=centavos(parcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+      let pago=0, ultimo='';
+      parcelas.forEach(function(p){ const s=situacaoDaParcela(r.id,p.id); if(s){ pago+=s.pago; if(s.pagoEm>ultimo) ultimo=s.pagoEm; } });
+      pago=centavos(pago);
+      if(pago>0 && (r.producao||{}).situacao==='aguardando'){
+        r.producao=Object.assign({},r.producao,{situacao:'producao', em:new Date().toISOString(), por:'Financeiro (pagamento)'});
+        logAction('Financeiro','Material em produção (entrada paga)',r,'Pago R$ '+fmtBR(pago)+' de R$ '+fmtBR(total));
+        mudou=true;
+      }
+      // Quitado SO sai da lista quando o material ja esta a caminho (na
+      // transportadora) ou chegou — pago e ainda no fornecedor continua aqui,
+      // para ninguem esquecer de cobrar o envio (pedido do Ander, 16/11/2026).
+      if(total>0 && pago>=total-0.01 && materialACaminho(r)){
+        const quitado=Object.assign({},r,{dataPag:ultimo||hojeIsoLocal(), listaAntes:aba});
+        delete quitado.status;
+        data.pago.push(quitado);
+        data[aba].splice(i,1);
+        logAction('Financeiro','Pago no Financeiro',r,'R$ '+fmtBR(pago)+' — foi para Obras pagas');
+        mudou=true;
+      }
+    }
+  });
+  if(mudou) persist();
+  render();
+}
+function chaveCotacao(r){ return [normalizarTxt(r.obra), normalizarTxt(r.contrato), normalizarTxt(r.material)].join('|'); }
+function blocoPedidoFeito(r){
+  let h='';
+  if(r.pedidoFeito){
+    const pf=r.pedidoFeito;
+    h+='<span class="td-by" style="color:var(--green);font-weight:600;display:block;margin-top:3px">📦 Pedido feito '+fmtDate(pf.em)+
+      (pf.nr?' · nº '+escHtml(pf.nr):'')+'</span>';
+    if(pf.financeiro==='pendente') h+='<span class="td-by" style="color:var(--red)">⚠️ ainda não chegou ao Financeiro — tentando de novo</span>';
+  }
+  const guardadas=(data.cotacoesGuardadas||[]).filter(function(c){ return c.guardada && c.guardada.pedidoId===r.id; }).length;
+  if(guardadas) h+='<a href="#" onclick="abrirCotacoesGuardadas(\''+r.id+'\');return false" class="td-by" style="color:var(--teal-dark);text-decoration:underline">📁 '+
+    guardadas+' cotaç'+(guardadas===1?'ão guardada':'ões guardadas')+'</a>';
+  return h;
+}
+// ---- JANELAS DO PROPRIO SISTEMA (pedido do Ander, 16/11/2026) ----
+// No lugar do alert/confirm/prompt do navegador ("daluminium.github.io diz"),
+// a janela do sistema, no mesmo desenho das outras. Cada uma devolve uma
+// Promise: quem chama usa "await".
+//   janelaSistema({titulo, mensagem, botoes:[{rotulo, valor, estilo}],
+//                  campo:{rotulo, valor, placeholder}})  -> {botao, texto}
+// Fechar no X ou com Esc devolve botao null (o mesmo que cancelar).
+function janelaSistema(op){
+  return new Promise(function(resolve){
+    const anterior=document.activeElement;
+    const janela=document.createElement('dialog');
+    janela.className='modal';
+    // position/inset/margin: a classe .modal tira a janela do centro; sem
+    // isto ela grudava no canto de cima, a esquerda.
+    janela.style.cssText='border:0;padding:0;color:var(--gray-6);max-width:520px;width:calc(100vw - 32px);'+
+      'position:fixed;inset:0;margin:auto;height:fit-content;max-height:calc(100vh - 32px);overflow:auto;'+
+      'border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.25)';
+    const botoes=(op.botoes&&op.botoes.length)?op.botoes:[{rotulo:'OK', valor:'ok', estilo:'btn-teal'}];
+    janela.innerHTML='<div class="modal-header"><div class="modal-title"></div>'+
+      '<button type="button" class="act" data-fechar aria-label="Fechar">✕</button></div>'+
+      '<div class="modal-body"><div data-texto style="white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5"></div>'+
+      (op.campo?'<div class="form-group" style="margin-top:12px"><label data-rotulo></label><input data-campo type="text" style="width:100%;box-sizing:border-box"></div>':'')+
+      '</div><div class="modal-footer"></div>';
+    janela.querySelector('.modal-title').textContent=op.titulo||'Daluminium';
+    janela.querySelector('[data-texto]').textContent=op.mensagem||'';
+    if(op.campo){
+      janela.querySelector('[data-rotulo]').textContent=op.campo.rotulo||'';
+      const c=janela.querySelector('[data-campo]');
+      c.value=op.campo.valor||''; c.placeholder=op.campo.placeholder||'';
+      c.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); fechar(botoes[botoes.length-1].valor); } });
+    }
+    const rodape=janela.querySelector('.modal-footer');
+    let escolhido=null;
+    function fechar(v){ escolhido=v; janela.close(); }
+    botoes.forEach(function(b){
+      const el=document.createElement('button');
+      el.type='button'; el.className='btn '+(b.estilo||'btn-outline'); el.textContent=b.rotulo;
+      el.onclick=function(){ fechar(b.valor); };
+      rodape.appendChild(el);
+    });
+    janela.querySelector('[data-fechar]').onclick=function(){ fechar(null); };
+    janela.addEventListener('keydown',function(e){ e.stopPropagation(); });
+    janela.addEventListener('close',function(){
+      const texto=op.campo?janela.querySelector('[data-campo]').value:'';
+      janela.remove();
+      if(anterior&&anterior.isConnected) anterior.focus();
+      resolve({botao:escolhido, texto:texto});
+    },{once:true});
+    document.body.appendChild(janela);
+    janela.showModal();
+    const foco=op.campo?janela.querySelector('[data-campo]'):rodape.lastChild;
+    if(foco) foco.focus();
+  });
+}
+async function dlgAviso(titulo, mensagem){
+  await janelaSistema({titulo:titulo, mensagem:mensagem, botoes:[{rotulo:'OK', valor:'ok', estilo:'btn-teal'}]});
+}
+async function dlgConfirmar(titulo, mensagem, rotuloOk, rotuloCancelar){
+  const r=await janelaSistema({titulo:titulo, mensagem:mensagem, botoes:[
+    {rotulo:rotuloCancelar||'Cancelar', valor:'nao', estilo:'btn-outline'},
+    {rotulo:rotuloOk||'Confirmar', valor:'sim', estilo:'btn-teal'}]});
+  return r.botao==='sim';
+}
+// Devolve o texto digitado, ou null se cancelou.
+async function dlgPerguntar(titulo, mensagem, rotuloCampo, valorInicial, rotuloOk){
+  const r=await janelaSistema({titulo:titulo, mensagem:mensagem,
+    campo:{rotulo:rotuloCampo||'', valor:valorInicial||''},
+    botoes:[{rotulo:'Cancelar', valor:'nao', estilo:'btn-outline'},{rotulo:rotuloOk||'OK', valor:'sim', estilo:'btn-teal'}]});
+  return r.botao==='sim' ? r.texto : null;
+}
+// Quem esta usando o sistema. So pergunta se, por algum motivo, nao souber.
+async function nomeDeQuemUsa(acao){
+  const n=usuarioLogado();
+  if(n) return n;
+  const t=await dlgPerguntar('Quem está fazendo?', 'Seu nome é obrigatório para registrar '+acao+'.', 'Seu nome', lastBy||'', 'Continuar');
+  return t&&t.trim()?t.trim():null;
+}
+
+// Trava contra o clique duplo: em 16/11/2026 o Historico mostrou "Fez pedido"
+// duas vezes no mesmo minuto. Enquanto um pedido esta sendo feito ou
+// desfeito, outro clique e ignorado.
+let _pedidoEmAndamento=false;
+async function fazerPedido(type,idx){
+  if(_pedidoEmAndamento) return;
+  _pedidoEmAndamento=true;
+  try{ return await fazerPedidoDeFato(type,idx); }
+  finally{ _pedidoEmAndamento=false; }
+}
+async function fazerPedidoDeFato(type,idx){
+  if(recusarSeConsulta()) return;
+  let r=data[type][idx];        // 'let': depois das janelas, e relido pelo id
+  if(!r) return;
+  if(r.pedidoFeito){ return desfazerPedido(type,idx); }
+  const pg=r.pagamento;
+  if(!pg||!(pg.parcelas||[]).length){
+    const e=await janelaSistema({titulo:'Sem pagamento combinado',
+      mensagem:'"'+r.obra+'" ainda não tem o pagamento combinado (condição e parcelas).\n\n'+
+        'Para o pedido ir ao Contas a Pagar do Financeiro, combine o pagamento no "Editar orçamento".',
+      botoes:[{rotulo:'Cancelar', valor:null, estilo:'btn-outline'},
+              {rotulo:'Marcar como pago direto', valor:'pago', estilo:'btn-outline'},
+              {rotulo:'Combinar o pagamento', valor:'combinar', estilo:'btn-teal'}]});
+    if(e.botao==='combinar') openModal(type,idx);
+    else if(e.botao==='pago') markPaid(type,idx);
+    return;
+  }
+  const total=centavos(r.valor);
+  const soma=centavos(pg.parcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  if(Math.abs(soma-total)>=0.01){
+    await dlgAviso('Parcelas não fecham', 'As parcelas somam R$ '+fmtBR(soma)+', mas o orçamento é R$ '+fmtBR(total)+'.\n\nAcerte no "Editar orçamento" antes de fazer o pedido.');
+    return;
+  }
+  const prev=(r.producao||{}).previsaoPronto||'';
+  const semData=pg.parcelas.filter(function(p){ return (Number(p.valor)||0)>0 && !vencimentoDaParcela(p,prev); });
+  if(semData.length){
+    const temPronto=semData.some(function(p){ return p.quando==='pronto'; });
+    await dlgAviso('Falta o vencimento', 'Falta o vencimento de: '+semData.map(function(p){ return '"'+(p.desc||'parcela')+'"'; }).join(', ')+'.\n\n'+
+      (temPronto?'A parcela "quando ficar pronto" vence na PREVISÃO DE PRONTO: preencha a previsão no "Editar orçamento".'
+                :'Preencha a data no "Editar orçamento".'));
+    return;
+  }
+  const resumo=pg.parcelas.map(function(p){ return '• '+(p.desc||'Parcela')+': R$ '+fmtBR(p.valor)+' — vence '+fmtDate(vencimentoDaParcela(p,prev)); }).join('\n');
+  const nr=await dlgPerguntar('Fazer pedido',
+    'Fazer o pedido de "'+r.obra+'" com '+(r.fornecedor||'o fornecedor')+'?\n\n'+resumo+
+    '\n\nAs parcelas vão para o Contas a Pagar do Financeiro.',
+    'Nº do pedido no fornecedor (opcional)', r.nrOrc||'', 'Fazer pedido');
+  if(nr===null) return;
+  // A lista pode ser RECARREGADA do servidor enquanto as janelas estao
+  // abertas (os objetos viram outros). Em 16/11/2026 isso fez o proprio pedido
+  // do Osvaldo ser guardado como "outra cotacao": a conta comparava pela copia
+  // antiga (x!==r). Daqui em diante, tudo pelo ID e sempre na lista de agora.
+  const pid=r.id;
+  const chave=chaveCotacao(r);
+  const acharPedido=function(){
+    for(const L of ['urgente','importante']){
+      const x=(data[L]||[]).find(function(y){ return y.id===pid; });
+      if(x) return x;
+    }
+    return null;
+  };
+  const outrasAgora=function(){
+    const o=[];
+    ['urgente','importante'].forEach(function(aba){
+      (data[aba]||[]).forEach(function(x){ if(x.id!==pid && !x.pedidoFeito && chaveCotacao(x)===chave) o.push({aba:aba, reg:x}); });
+    });
+    return o;
+  };
+  const outras=outrasAgora();
+  let guardar=false;
+  if(outras.length){
+    const g=await janelaSistema({titulo:'Outras cotações',
+      mensagem:'Há '+outras.length+' outra'+(outras.length>1?'s':'')+' cotaç'+(outras.length>1?'ões':'ão')+' de "'+(r.material||r.obra)+'" para esta obra:\n\n'+
+        outras.map(function(o){ return '• '+(o.reg.fornecedor||'sem fornecedor')+' — R$ '+fmtBR(o.reg.valor); }).join('\n')+
+        '\n\nGuardadas, elas saem da lista, mas dá para trazer de volta se este fornecedor faltar com algum produto ou demorar.',
+      botoes:[{rotulo:'Deixar na lista', valor:'deixar', estilo:'btn-outline'},
+              {rotulo:'Guardar', valor:'guardar', estilo:'btn-teal'}]});
+    if(g.botao===null) return;      // fechou no X: nao faz o pedido
+    guardar=g.botao==='guardar';
+  }
+  const quem=usuarioLogado()||'—';
+  // O registro como esta AGORA na lista (nao a copia de antes das janelas).
+  r=acharPedido();
+  if(!r){ await dlgAviso('A lista mudou', 'Este orçamento não está mais em Urgentes nem em Importantes.\n\nAbra a lista de novo e confira.'); return; }
+  if(r.pedidoFeito) return;     // outra aba/pessoa fez o pedido enquanto a janela estava aberta
+  r.pedidoFeito={em:hojeIsoLocal(), por:quem, nr:String(nr||'').trim(), financeiro:'enviando'};
+  if(!r.producao||!r.producao.situacao) r.producao=Object.assign({},r.producao||{},{situacao:'aguardando', em:new Date().toISOString(), por:quem});
+  let guardadas=0;
+  if(guardar){
+    if(!Array.isArray(data.cotacoesGuardadas)) data.cotacoesGuardadas=[];
+    const escolhidas=outras.map(function(o){ return o.reg.id; });
+    outrasAgora().forEach(function(o){
+      if(escolhidas.indexOf(o.reg.id)<0 || o.reg.id===pid) return;
+      const i=data[o.aba].indexOf(o.reg);
+      if(i<0) return;
+      data[o.aba].splice(i,1);
+      data.cotacoesGuardadas.push(Object.assign({},o.reg,{guardada:{em:new Date().toISOString(), por:quem, pedidoId:pid, aba:o.aba,
+        motivo:'Pedido feito com '+(r.fornecedor||'outro fornecedor')}}));
+      guardadas++;
+    });
+  }
+  logAction(quem,'Fez pedido',r,'Fornecedor '+(r.fornecedor||'—')+(r.pedidoFeito.nr?' · nº '+r.pedidoFeito.nr:'')+
+    ' · '+pg.parcelas.length+' parcela(s)'+(guardadas?' · '+guardadas+' cotação(ões) guardada(s)':''));
+  await persist();
+  render();
+  const res=await enviarPedidosAoFinanceiro([r],[]);
+  if(!res.ok) await dlgAviso('Pedido feito', 'O pedido foi feito, mas as parcelas ainda não chegaram ao Financeiro ('+res.erro+').\n\nO sistema tenta de novo sozinho daqui a pouco.');
+}
+async function desfazerPedido(type,idx){
   const r=data[type][idx];
-  const user=prompt('Seu nome (obrigatório para registrar o pagamento):',lastBy||'');
-  if(!user||!user.trim()){ alert('Nome obrigatório para registrar o pagamento.'); return; }
+  if(!r||!r.pedidoFeito) return;
+  const temPago=((r.pagamento||{}).parcelas||[]).some(function(p){ const s=situacaoDaParcela(r.id,p.id); return s&&s.pago>0; });
+  if(!await dlgConfirmar('Desfazer pedido', 'Desfazer o pedido de "'+r.obra+'" ('+(r.fornecedor||'—')+')?\n\n'+
+    'As parcelas que ainda não foram pagas saem do Contas a Pagar do Financeiro.'+
+    (temPago?'\n\n⚠️ Já há pagamento registrado: essa parte continua no Financeiro.':''), 'Desfazer pedido', 'Voltar')) return;
+  const quem=usuarioLogado()||'—';
+  const pid=r.id;
+  delete r.pedidoFeito;
+  logAction(quem,'Desfez pedido',r,'Fornecedor '+(r.fornecedor||'—'));
+  await persist();
+  render();
+  const res=await enviarPedidosAoFinanceiro([],[pid]);
+  if(!res.ok) await dlgAviso('Pedido desfeito', 'O pedido foi desfeito aqui, mas não consegui avisar o Financeiro ('+res.erro+').\n\nPeça ao financeiro para conferir as contas desta compra.');
+}
+function abrirCotacoesGuardadas(pid){
+  const lista=(data.cotacoesGuardadas||[]).filter(function(c){ return c.guardada&&c.guardada.pedidoId===pid; });
+  const pedido=[...(data.urgente||[]),...(data.importante||[]),...(data.pago||[])].find(function(x){ return x.id===pid; })||{};
+  const velho=document.getElementById('cotacoes-guardadas-ov'); if(velho) velho.remove();
+  const el=document.createElement('div');
+  el.id='cotacoes-guardadas-ov'; el.className='modal-overlay open';
+  el.innerHTML='<div class="modal" style="max-width:560px"><div class="modal-header"><div class="modal-title">Cotações guardadas</div>'+
+    '<button class="act" data-fechar="1" aria-label="Fechar">✕</button></div><div class="modal-body">'+
+    '<p style="margin:0 0 10px">Pedido feito com <strong>'+escHtml(pedido.fornecedor||'—')+'</strong> para <strong>'+escHtml(pedido.obra||'')+'</strong>'+
+    (pedido.material?' ('+escHtml(pedido.material)+')':'')+'. Se ele faltar com algum produto ou demorar, traga outra cotação de volta para a lista.</p>'+
+    (lista.length?lista.map(function(c){
+      return '<div style="border:1px solid var(--gray-2);border-radius:var(--radius);padding:10px;margin-top:8px;display:flex;gap:10px;align-items:center;justify-content:space-between">'+
+        '<div><strong>'+escHtml(c.fornecedor||'sem fornecedor')+'</strong> — R$ '+fmtBR(c.valor)+
+        (c.nrOrc?'<span class="td-by">orç. '+escHtml(c.nrOrc)+'</span>':'')+
+        '<span class="td-by">guardada em '+fmtDate(String(c.guardada.em).slice(0,10))+' por '+escHtml(c.guardada.por||'—')+'</span></div>'+
+        '<button class="btn btn-teal btn-sm" data-voltar="'+escHtml(c.id)+'">Voltar para a lista</button></div>';
+    }).join(''):'<p class="note">Nenhuma cotação guardada.</p>')+
+    '</div><div class="modal-footer"><button class="btn btn-outline" data-fechar="1">Fechar</button></div></div>';
+  el.addEventListener('click',function(ev){
+    const b=ev.target.closest('button'); if(!b) return;
+    if(b.dataset.fechar){ el.remove(); return; }
+    if(b.dataset.voltar){ voltarCotacaoGuardada(b.dataset.voltar); el.remove(); }
+  });
+  document.body.appendChild(el);
+}
+async function voltarCotacaoGuardada(id){
+  if(recusarSeConsulta()) return;
+  const i=(data.cotacoesGuardadas||[]).findIndex(function(c){ return c.id===id; });
+  if(i<0){ await dlgAviso('Cotações guardadas', 'A lista foi atualizada. Abra de novo.'); return; }
+  const c=data.cotacoesGuardadas[i];
+  const aba=(c.guardada&&c.guardada.aba)==='urgente'?'urgente':'importante';
+  const volta=Object.assign({},c,{status:'Pendente'});
+  delete volta.guardada;
+  data.cotacoesGuardadas.splice(i,1);
+  data[aba].push(volta);
+  logAction(usuarioLogado()||'—','Cotação voltou para a lista',volta,'Fornecedor '+(volta.fornecedor||'—')+' — guardada quando o pedido foi feito com outro');
+  await persist();
+  render();
+}
+// A situacao dos pagamentos vem do Financeiro a cada 3 minutos (e logo ao abrir).
+setTimeout(atualizarSituacaoPagamentos, 4000);
+setInterval(atualizarSituacaoPagamentos, 3*60*1000);
+async function markPaid(type,idx){
+  const r=data[type][idx];
+  const user=await nomeDeQuemUsa('o pagamento');
+  if(!user) return;
+  if(data[type][idx]!==r) return;     // a lista mudou enquanto a janela estava aberta
   const paid={...r,dataPag:new Date().toISOString().slice(0,10),listaAntes:type};
   delete paid.status;
   data.pago.push(paid);
@@ -1334,12 +1927,12 @@ function markPaid(type,idx){
 // A obra volta como Pendente para a lista de onde saiu (Urgentes ou
 // Importantes). As pagas antigas não guardaram de onde vieram: aí a pessoa
 // escolhe. A data de pagamento é apagada e tudo fica no Histórico.
-function voltarParaPendente(idx){
+async function voltarParaPendente(idx){
   if(recusarSeConsulta()) return;
   const r=(data.pago||[])[idx];
   if(!r) return;
-  const user=prompt('Seu nome (obrigatório para registrar a alteração):',lastBy||'');
-  if(!user||!user.trim()){ alert('Nome obrigatório para registrar a alteração.'); return; }
+  const user=await nomeDeQuemUsa('a alteração');
+  if(!user) return;
   const velho=document.getElementById('voltar-pendente-overlay'); if(velho) velho.remove();
   const el=document.createElement('div');
   el.id='voltar-pendente-overlay'; el.className='modal-overlay open';
@@ -2172,14 +2765,15 @@ function gerarImpressao(opts){
   const today=new Date(); today.setHours(0,0,0,0);
   const overdue=[],dueToday=[],dueSoon=[];
   [...data.urgente,...data.importante].forEach(r=>{
-    if(!r.entrega||r.entrega==='—') return;
+    // Mesma regra da tela (16/11/2026): conta da entrada na obra, se houver.
+    const marco=marcoDoPrazo(r);
+    if(!marco) return;
     if(r.status==='Aguardando cliente') return;
-    const dt=new Date(r.entrega); dt.setHours(0,0,0,0);
-    const diff=Math.round((dt-today)/(1000*60*60*24));
-    const threshold=r.tipo==='especial'?60:30;
+    const diff=diasAteOMarco(r);
+    const threshold=diasDeAntecedencia(r);
     const tipoLabel=r.tipo==='especial'?'Especial':'Padrão';
     const label=`${r.obra} — ${r.fornecedor} [${tipoLabel}] (R$ ${Number(r.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})})`;
-    const entregaStr=r.entrega?r.entrega.split('-').reverse().join('/'):'';
+    const entregaStr=(marco.nome==='entrada na obra'?'Entrada na obra: ':'Entrega: ')+marco.data.split('-').reverse().join('/');
     if(diff<0) overdue.push({label,days:Math.abs(diff),entrega:entregaStr});
     else if(diff===0) dueToday.push({label,entrega:entregaStr});
     else if(diff<=threshold) dueSoon.push({label,days:diff,threshold,entrega:entregaStr});
@@ -2193,16 +2787,16 @@ function gerarImpressao(opts){
       </div>`;
     if(overdue.length){
       html+=`<div style="background:#FDF0EE;border-left:4px solid #C0392B;border-radius:4px;padding:8px 12px;margin-bottom:8px">
-        <div style="font-size:11px;font-weight:700;color:#C0392B;margin-bottom:6px">🚨 ENTREGA ATRASADA (${overdue.length})</div>
+        <div style="font-size:11px;font-weight:700;color:#C0392B;margin-bottom:6px">🚨 DATA DA OBRA VENCIDA (${overdue.length})</div>
         <table style="width:100%;border-collapse:collapse;font-size:10px">
-          ${overdue.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5c4c4;width:65%">${o.label}</td><td style="text-align:right;color:#C0392B;font-weight:700;padding:3px 0;border-bottom:1px solid #f5c4c4">Entrega: ${o.entrega} · ${o.days} dia${o.days>1?'s':''} atrasado</td></tr>`).join('')}
+          ${overdue.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5c4c4;width:65%">${o.label}</td><td style="text-align:right;color:#C0392B;font-weight:700;padding:3px 0;border-bottom:1px solid #f5c4c4">${o.entrega} · ${o.days} dia${o.days>1?'s':''} atrasado</td></tr>`).join('')}
         </table></div>`;
     }
     if(dueToday.length){
       html+=`<div style="background:#FEF7E6;border-left:4px solid #B9770E;border-radius:4px;padding:8px 12px;margin-bottom:8px">
-        <div style="font-size:11px;font-weight:700;color:#B9770E;margin-bottom:6px">📅 ENTREGA HOJE (${dueToday.length})</div>
+        <div style="font-size:11px;font-weight:700;color:#B9770E;margin-bottom:6px">📅 ENTRADA NA OBRA OU ENTREGA HOJE (${dueToday.length})</div>
         <table style="width:100%;border-collapse:collapse;font-size:10px">
-          ${dueToday.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5d98a;width:65%">${o.label}</td><td style="text-align:right;color:#B9770E;font-weight:700;padding:3px 0;border-bottom:1px solid #f5d98a">Entrega: ${o.entrega}</td></tr>`).join('')}
+          ${dueToday.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5d98a;width:65%">${o.label}</td><td style="text-align:right;color:#B9770E;font-weight:700;padding:3px 0;border-bottom:1px solid #f5d98a">${o.entrega}</td></tr>`).join('')}
         </table></div>`;
     }
     if(dueSoon.length){
@@ -2210,7 +2804,7 @@ function gerarImpressao(opts){
         <div style="font-size:11px;font-weight:700;color:#8B0000;margin-bottom:2px">🔴 LEAD TIME COMPROMETIDO — COMPRA URGENTE! (${dueSoon.length})</div>
         <div style="font-size:9px;color:#8B0000;margin-bottom:6px">O prazo de entrega do material já passou. Compre imediatamente!</div>
         <table style="width:100%;border-collapse:collapse;font-size:10px">
-          ${dueSoon.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5c4c4;width:60%">${o.label}</td><td style="text-align:right;color:#8B0000;font-weight:700;padding:3px 0;border-bottom:1px solid #f5c4c4">Entrega: ${o.entrega} · em ${o.days}d · compra atrasada ${o.threshold-o.days}d (lead ${o.threshold}d)</td></tr>`).join('')}
+          ${dueSoon.map(o=>`<tr><td style="padding:3px 0;border-bottom:1px solid #f5c4c4;width:60%">${o.label}</td><td style="text-align:right;color:#8B0000;font-weight:700;padding:3px 0;border-bottom:1px solid #f5c4c4">${o.entrega} · em ${o.days}d · compra atrasada ${o.threshold-o.days}d (lead ${o.threshold}d)</td></tr>`).join('')}
         </table></div>`;
     }
     html+=`</div>`;
@@ -2419,6 +3013,183 @@ ${opts.manutencao&&(data.manutencao||[]).length?`<div class="page">
   w.document.close();
 }
 
+// ---- FILTRO DE PAGAMENTO NA TELA PRINCIPAL (pedido do Ander, 16/11/2026) ----
+let filtroPg='';
+// Situacao do pagamento de um lancamento: 'sem' (sem pedido feito), 'apagar',
+// 'parcial' ou 'pago'. Em Obras pagas, quem nao tem pedido (o "marcar como
+// pago" de antes) conta como pago.
+function situacaoPgDe(r, aba){
+  const pp=pagoDoPedido(r);
+  if(!pp) return aba==='pago'?'pago':'sem';
+  if(pp.total>0 && pp.pago>=pp.total-0.01) return 'pago';
+  return pp.pago>0?'parcial':'apagar';
+}
+function passaFiltroPg(r, aba){ return !filtroPg || situacaoPgDe(r, aba)===filtroPg; }
+
+// ---- RELATORIO "MATERIAL EM PRODUCAO" (pedido do Ander, 16/11/2026) ----
+// Todo pedido feito cujo material ainda NAO chegou, em tres grupos pelo
+// pagamento: tudo pago (aguardando producao, retirada ou chegada), pagamento
+// parcial e a pagar na retirada/envio (nada pago ainda). Com quanto ja foi
+// pago e quanto falta — o numero que o financeiro usa para programar o caixa.
+const GRUPOS_RELATORIO=[
+  {id:'pago',    titulo:'✅ Tudo pago — aguardando produção, retirada ou chegada', cor:'#1A7A45'},
+  {id:'parcial', titulo:'🟡 Pagamento parcial', cor:'#B9770E'},
+  {id:'apagar',  titulo:'🔵 A pagar na retirada / envio (nada pago ainda)', cor:'#1A5276'}
+];
+let _relFiltro={grupos:{pago:true,parcial:true,apagar:true}, fornecedor:'', busca:''};
+function linhasDoRelatorio(){
+  const saida=[];
+  ['urgente','importante','pago'].forEach(function(aba){
+    (data[aba]||[]).forEach(function(r){
+      if(!r.pedidoFeito) return;
+      const mat=r.producao||{};
+      if(mat.situacao==='retirado') return;             // ja chegou: sai do relatorio
+      const pp=pagoDoPedido(r)||{total:centavos(r.valor),pago:0};
+      const grupo=(pp.total>0&&pp.pago>=pp.total-0.01)?'pago':(pp.pago>0?'parcial':'apagar');
+      const m=marcoDoPrazo(r);
+      const alertas=[];
+      if(mat.previsaoPronto && m && mat.previsaoPronto>m.data) alertas.push('fica pronto depois da '+m.nome);
+      if(mat.previsaoPronto && ['aguardando','producao',''].indexOf(mat.situacao||'')>=0 && diasAte(mat.previsaoPronto)<0) alertas.push('previsão de pronto venceu');
+      if(mat.situacao==='transporte' && mat.previsaoChegada && diasAte(mat.previsaoChegada)<0) alertas.push('previsão de chegada venceu');
+      if(mat.situacao==='pronto' && grupo!=='pago') alertas.push('pronto, aguardando pagamento');
+      if(mat.situacao==='pronto' && grupo==='pago') alertas.push('pago e pronto: retirar ou pedir envio');
+      saida.push({r:r, aba:aba, grupo:grupo, total:pp.total, pago:pp.pago, falta:centavos(pp.total-pp.pago),
+        condicao:CONDICAO_CURTA[(r.pagamento||{}).condicao]||'—',
+        situacao:rotuloDe(SITUACOES_MATERIAL, mat.situacao||'')||'—',
+        pronto:mat.previsaoPronto||'', chegada:mat.situacao==='transporte'?(mat.previsaoChegada||''):'',
+        entrada:m?m.data:'', entradaNome:m?m.nome:'', alertas:alertas});
+    });
+  });
+  const f=_relFiltro;
+  const busca=paraBusca(f.busca||'');
+  return saida.filter(function(x){
+    if(!f.grupos[x.grupo]) return false;
+    if(f.fornecedor && x.r.fornecedor!==f.fornecedor) return false;
+    if(busca && !paraBusca([x.r.obra,x.r.contrato,x.r.material,x.r.fornecedor].join(' ')).includes(busca)) return false;
+    return true;
+  }).sort(function(a,b){ return String(a.pronto||'9999').localeCompare(String(b.pronto||'9999')); });
+}
+function tabelaDoRelatorio(linhas, paraImprimir){
+  const td='padding:6px 8px;border-bottom:1px solid #EEF0F2;vertical-align:top';
+  const th='padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#5A6370;border-bottom:2px solid #DEE1E5;white-space:nowrap';
+  let html='';
+  let tTot=0,tPago=0,tFalta=0;
+  GRUPOS_RELATORIO.forEach(function(g){
+    const ls=linhas.filter(function(x){ return x.grupo===g.id; });
+    if(!ls.length) return;
+    const soma=function(k){ return centavos(ls.reduce(function(a,x){ return a+x[k]; },0)); };
+    tTot+=soma('total'); tPago+=soma('pago'); tFalta+=soma('falta');
+    html+='<div style="margin:14px 0 6px;font-weight:700;color:'+g.cor+'">'+g.titulo+' <span style="font-weight:400;color:#5A6370">('+ls.length+')</span></div>'+
+      '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:'+(paraImprimir?'10':'12')+'px">'+
+      '<thead><tr>'+['Obra / contrato','Material','Fornecedor','Condição','Total','Já pago','Falta pagar','Material no fornecedor','Pronto previsto','Chegada prevista','Entrada na obra','Atenção']
+        .map(function(t){ return '<th style="'+th+'">'+t+'</th>'; }).join('')+'</tr></thead><tbody>'+
+      ls.map(function(x){
+        const r=x.r;
+        return '<tr>'+
+          '<td style="'+td+';font-weight:600">'+escHtml(r.obra||'')+(r.contrato?'<div style="font-weight:400;color:#5A6370">CT '+escHtml(r.contrato)+'</div>':'')+'</td>'+
+          '<td style="'+td+'">'+escHtml(r.material||'—')+'</td>'+
+          '<td style="'+td+'">'+escHtml(r.fornecedor||'—')+(r.pedidoFeito&&r.pedidoFeito.nr?'<div style="color:#5A6370">pedido nº '+escHtml(r.pedidoFeito.nr)+'</div>':'')+'</td>'+
+          '<td style="'+td+'">'+escHtml(x.condicao)+'</td>'+
+          '<td style="'+td+';white-space:nowrap">R$ '+fmtBR(x.total)+'</td>'+
+          '<td style="'+td+';white-space:nowrap;color:#1A7A45">R$ '+fmtBR(x.pago)+'</td>'+
+          '<td style="'+td+';white-space:nowrap;font-weight:700;color:'+(x.falta>0?'#C0392B':'#1A7A45')+'">R$ '+fmtBR(x.falta)+'</td>'+
+          '<td style="'+td+'">'+escHtml(x.situacao)+'</td>'+
+          '<td style="'+td+';white-space:nowrap">'+(x.pronto?fmtDate(x.pronto):'—')+'</td>'+
+          '<td style="'+td+';white-space:nowrap">'+(x.chegada?fmtDate(x.chegada):'—')+(x.chegada&&r.transportadora?'<div style="color:#5A6370">'+escHtml(r.transportadora)+'</div>':'')+'</td>'+
+          '<td style="'+td+';white-space:nowrap">'+(x.entrada?fmtDate(x.entrada):'—')+'</td>'+
+          '<td style="'+td+';color:#C0392B">'+escHtml(x.alertas.join('; '))+'</td>'+
+          '</tr>';
+      }).join('')+
+      '<tr style="background:#F7F8F9;font-weight:700"><td style="'+td+'" colspan="4">Total do grupo</td>'+
+        '<td style="'+td+';white-space:nowrap">R$ '+fmtBR(soma('total'))+'</td>'+
+        '<td style="'+td+';white-space:nowrap;color:#1A7A45">R$ '+fmtBR(soma('pago'))+'</td>'+
+        '<td style="'+td+';white-space:nowrap;color:#C0392B">R$ '+fmtBR(soma('falta'))+'</td><td style="'+td+'" colspan="5"></td></tr>'+
+      '</tbody></table></div>';
+  });
+  if(!html) return '<p style="color:#5A6370;padding:20px 0;text-align:center">Nenhum pedido em produção com estes filtros.</p>';
+  html+='<div style="margin-top:14px;padding:10px 12px;background:#FDF0EE;border-radius:8px;display:flex;gap:18px;flex-wrap:wrap;font-weight:700">'+
+    '<span>Total dos pedidos: R$ '+fmtBR(tTot)+'</span><span style="color:#1A7A45">Já pago: R$ '+fmtBR(tPago)+'</span>'+
+    '<span style="color:#C0392B">Falta pagar: R$ '+fmtBR(tFalta)+'</span></div>';
+  return html;
+}
+function abrirRelatorioProducao(){
+  const velho=document.getElementById('relatorio-producao-ov'); if(velho) velho.remove();
+  const fornecedores=[];
+  ['urgente','importante','pago'].forEach(function(aba){ (data[aba]||[]).forEach(function(r){ if(r.pedidoFeito && r.fornecedor && fornecedores.indexOf(r.fornecedor)<0) fornecedores.push(r.fornecedor); }); });
+  fornecedores.sort();
+  const el=document.createElement('div');
+  el.id='relatorio-producao-ov'; el.className='modal-overlay open';
+  el.innerHTML='<div class="modal" style="max-width:1200px;width:calc(100vw - 32px)"><div class="modal-header"><div class="modal-title">📊 Material em produção</div>'+
+    '<button class="act" data-acao="fechar" aria-label="Fechar">✕</button></div><div class="modal-body">'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px">'+
+      GRUPOS_RELATORIO.map(function(g){ return '<label style="display:flex;gap:4px;align-items:center;font-size:12px"><input type="checkbox" data-grupo="'+g.id+'"'+(_relFiltro.grupos[g.id]?' checked':'')+'>'+g.titulo.split(' — ')[0]+'</label>'; }).join('')+
+      '<select data-forn style="font-size:12px;padding:4px 8px"><option value="">Todos os fornecedores</option>'+
+        fornecedores.map(function(x){ return '<option'+(_relFiltro.fornecedor===x?' selected':'')+'>'+escHtml(x)+'</option>'; }).join('')+'</select>'+
+      '<input data-busca placeholder="Obra ou contrato" value="'+escHtml(_relFiltro.busca||'')+'" style="font-size:12px;padding:4px 8px;min-width:160px">'+
+    '</div>'+
+    '<p class="note" style="margin:0 0 4px">Pedidos feitos cujo material ainda não chegou. O que já foi pago vem do Financeiro. Ordenado pela previsão de pronto.</p>'+
+    '<div data-tabela></div>'+
+    '</div><div class="modal-footer">'+
+      '<button class="btn btn-outline" data-acao="excel">⬇ Excel</button>'+
+      '<button class="btn btn-outline" data-acao="imprimir">🖨 Imprimir / PDF</button>'+
+      '<button class="btn btn-teal" data-acao="fechar">Fechar</button></div></div>';
+  const desenhar=function(){ el.querySelector('[data-tabela]').innerHTML=tabelaDoRelatorio(linhasDoRelatorio(), false); };
+  el.addEventListener('change',function(ev){
+    const t=ev.target;
+    if(t.dataset.grupo){ _relFiltro.grupos[t.dataset.grupo]=t.checked; desenhar(); }
+    if(t.hasAttribute('data-forn')){ _relFiltro.fornecedor=t.value; desenhar(); }
+  });
+  el.addEventListener('input',function(ev){ if(ev.target.hasAttribute('data-busca')){ _relFiltro.busca=ev.target.value; desenhar(); } });
+  el.addEventListener('click',function(ev){
+    const b=ev.target.closest('button'); if(!b) return;
+    if(b.dataset.acao==='fechar') el.remove();
+    if(b.dataset.acao==='imprimir') imprimirRelatorioProducao();
+    if(b.dataset.acao==='excel') excelRelatorioProducao();
+  });
+  document.body.appendChild(el);
+  desenhar();
+}
+function descricaoDosFiltros(){
+  const f=_relFiltro;
+  const gs=GRUPOS_RELATORIO.filter(function(g){ return f.grupos[g.id]; }).map(function(g){ return g.titulo.split(' — ')[0].replace(/^[^ ]+ /,''); });
+  return 'Grupos: '+(gs.length===3?'todos':gs.join(', '))+(f.fornecedor?' · Fornecedor: '+f.fornecedor:'')+(f.busca?' · Busca: '+f.busca:'');
+}
+function imprimirRelatorioProducao(){
+  const agora=new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const teste=/_teste$/.test(SUPA_SISTEMA);
+  const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Material em produção — '+agora+'</title>'+
+    '<style>body{font-family:-apple-system,Segoe UI,sans-serif;color:#23282F;margin:18px}h1{font-size:16px;margin:0 0 4px}'+
+    '.sub{font-size:11px;color:#5A6370;margin-bottom:8px}@page{size:landscape;margin:12mm}'+
+    '.faixa{border:2px solid #000;padding:5px;text-align:center;font-weight:700;font-size:11px;margin-bottom:8px}</style></head><body>'+
+    (teste?'<div class="faixa">AMBIENTE DE TESTE · ESTE RELATÓRIO NÃO VALE COMO DOCUMENTO</div>':'')+
+    '<h1>Daluminium · Material em produção</h1><div class="sub">'+escHtml(descricaoDosFiltros())+' · Emitido em '+agora+'</div>'+
+    tabelaDoRelatorio(linhasDoRelatorio(), true)+
+    '<script>window.onload=function(){window.print()}<\/script></body></html>';
+  const w=window.open('','_blank');
+  if(!w){ dlgAviso('Não abriu a impressão', 'O navegador bloqueou a janela de impressão. Libere as janelas deste site e tente de novo.'); return; }
+  w.document.write(html); w.document.close();
+}
+// Excel: arquivo .csv com ponto-e-virgula e virgula decimal, que o Excel em
+// portugues abre direto nas colunas certas.
+function excelRelatorioProducao(){
+  const num=function(v){ return (Math.round((Number(v)||0)*100)/100).toFixed(2).replace('.',','); };
+  const dt=function(v){ return v?fmtDate(v):''; };
+  const rows=[['Grupo','Obra','Contrato','Material','Fornecedor','Nº pedido','Condição','Total (R$)','Já pago (R$)','Falta pagar (R$)','Material no fornecedor','Pronto previsto','Chegada prevista','Transportadora','Entrada na obra','Atenção']];
+  linhasDoRelatorio().forEach(function(x){
+    const r=x.r;
+    const g=GRUPOS_RELATORIO.find(function(y){ return y.id===x.grupo; });
+    rows.push([g.titulo.replace(/^[^ ]+ /,''), r.obra||'', r.contrato||'', r.material||'', r.fornecedor||'', (r.pedidoFeito||{}).nr||'',
+      x.condicao, num(x.total), num(x.pago), num(x.falta), x.situacao, dt(x.pronto), dt(x.chegada), r.transportadora||'', dt(x.entrada), x.alertas.join('; ')]);
+  });
+  const csv=rows.map(function(r){ return r.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(';'); }).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='material_em_producao_'+new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },1000);
+}
+
 // ---- MEDIÇÃO + 20 DIAS ÚTEIS ----
 function addWorkdays(date, days){
   let d = new Date(date);
@@ -2431,6 +3202,391 @@ function addWorkdays(date, days){
   return d;
 }
 
+// No "Editar orçamento": quando a Obra mandou as datas, a entrega fica
+// travada aqui (quem muda é a Obra) e embaixo aparecem as outras datas e o
+// "Comprar até" (16/11/2026).
+function mostrarDatasObraNoModal(r){
+  const el=document.getElementById('f-entrega');
+  const nota=document.getElementById('f-entrega-obra');
+  const d=datasDaObra(r);
+  const travar=!!(d && d.entrega);
+  el.readOnly=travar;
+  el.style.background=travar?'var(--gray-1)':'';
+  if(!nota) return;
+  if(!d){ nota.style.display='none'; nota.textContent=''; return; }
+  const partes=[];
+  if(d.medicaoFeita) partes.push('medida em '+fmtDate(d.medicaoFeita));
+  else if(d.medicao) partes.push('medição prevista '+fmtDate(d.medicao));
+  if(d.projEntrada) partes.push('entrada na obra '+fmtDate(d.projEntrada));
+  const ate=comprarAte(r);
+  if(ate) partes.push('comprar até '+fmtDate(ate));
+  nota.textContent='🏗️ Vem do Gerenciamento de Obra'+(travar?' (para mudar a entrega, altere lá)':'')+
+    (partes.length?': '+partes.join(' · '):'')+'.';
+  nota.style.display='';
+}
+// ---- PAGAMENTO COMBINADO E MATERIAL (pedido do Ander, 16/11/2026) ----
+// Pagamento e material andam separados: da para estar 100% pago com o
+// material ainda em producao, ou com o material pronto esperando o restante.
+//   r.pagamento = {condicao, parcelas:[{id, desc, valor, quando, venc}]}
+//     quando 'data'   — vence na data digitada;
+//     quando 'pronto' — vence quando o material ficar pronto: usa a previsao
+//                       de pronto (e acompanha quando ela muda).
+//   r.producao  = {situacao, previsaoPronto, em, por}  (NAO r.material, que
+//                 ja e o nome do material, texto)
+// QUEM PAGA E O FINANCEIRO (decisao do Ander): cada parcela vai virar conta a
+// pagar la (etapa 2B), e a baixa e dada la. Por isso aqui nao existe "pago em".
+const CONDICOES_PAGAMENTO=[
+  ['','— não combinado ainda —'],
+  ['avista','À vista'],
+  ['50-50','50% para produzir + 50% quando pronto'],
+  ['100-antecipado','100% antecipado (aguarda a produção)'],
+  ['na-retirada','Pagamento na retirada / envio'],
+  ['parcelado','Parcelado'],
+  ['outra','Outra (descrever nas parcelas)']
+];
+const SITUACOES_MATERIAL=[
+  ['','— não informado —'],
+  ['aguardando','Aguardando pagamento para produzir'],
+  ['producao','Em produção'],
+  ['pronto','Pronto'],
+  // 'transporte' (16/11/2026): ja saiu do fornecedor e vem pela
+  // transportadora — tem previsao de chegada para conferir.
+  ['transporte','Enviado — na transportadora'],
+  ['retirado','Retirado / chegou']
+];
+// O material ja esta a caminho (ou chegou)? So entao o pedido quitado pode
+// sair da lista para Obras pagas (pedido do Ander, 16/11/2026).
+function materialACaminho(r){ return ['transporte','retirado'].indexOf(((r&&r.producao)||{}).situacao||'')>=0; }
+function rotuloDe(lista, v){ const x=lista.find(function(p){ return p[0]===v; }); return x?x[1]:''; }
+function hojeIsoLocal(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function maisDiasIso(iso, n){
+  const [y,mo,d]=String(iso).split('-').map(Number);
+  const dt=new Date(y, mo-1, d+n);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
+function lerValorBR(s){ return parseFloat(String(s||'').replace(/\./g,'').replace(',','.'))||0; }
+function centavos(v){ return Math.round((Number(v)||0)*100)/100; }
+// Cada parcela guarda a PORCENTAGEM (pct) e o valor calculado dela. Mudou o
+// valor do orcamento, as parcelas acompanham pela porcentagem (16/11/2026).
+function modeloDeParcelas(cond, valor){
+  const v=centavos(valor), metade=centavos(v/2), resto=centavos(v-metade), hoje=hojeIsoLocal();
+  switch(cond){
+    case 'avista':         return [{desc:'À vista', pct:100, valor:v, quando:'data', venc:hoje}];
+    case '50-50':          return [{desc:'Entrada (libera a produção)', pct:50, valor:metade, quando:'data', venc:hoje},
+                                   {desc:'Restante (libera o material)', pct:50, valor:resto, quando:'pronto', venc:''}];
+    case '100-antecipado': return [{desc:'100% antecipado', pct:100, valor:v, quando:'data', venc:hoje}];
+    case 'na-retirada':    return [{desc:'Na retirada / envio', pct:100, valor:v, quando:'pronto', venc:''}];
+    case 'parcelado':      return [{desc:'Parcela 1/2', pct:50, valor:metade, quando:'data', venc:maisDiasIso(hoje,30)},
+                                   {desc:'Parcela 2/2', pct:50, valor:resto, quando:'data', venc:maisDiasIso(hoje,60)}];
+    case 'outra':          return [{desc:'Entrada', pct:100, valor:v, quando:'data', venc:hoje}];
+    default:               return [];
+  }
+}
+function totalDoOrcamento(){ return centavos(lerValorBR(document.getElementById('f-valor').value)); }
+function pctDe(valor, total){ return total>0 ? Math.round(valor/total*10000)/100 : 0; }
+function fmtPct(p){ return (Math.round((Number(p)||0)*100)/100).toLocaleString('pt-BR',{maximumFractionDigits:2}); }
+function lerPct(s){ return parseFloat(String(s||'').replace('%','').replace(',','.'))||0; }
+// O que sobra vai para a ultima parcela. So uma parcela e ela nao fecha os
+// 100%? Nasce a parcela do restante, que vence quando o material ficar pronto
+// — o jeito mais comum: entrada para produzir, restante para liberar.
+function pgFecharRestante(mexida){
+  const total=totalDoOrcamento();
+  if(!_pgParcelas.length) return;
+  const somaOutras=function(excluir){
+    return centavos(_pgParcelas.reduce(function(a,p,j){ return j===excluir?a:a+(Number(p.valor)||0); },0));
+  };
+  if(_pgParcelas.length===1){
+    const resto=centavos(total-(Number(_pgParcelas[0].valor)||0));
+    if(resto>0.009) _pgParcelas.push({id:genId(), desc:'Restante (quando ficar pronto)',
+      pct:pctDe(resto,total), valor:resto, quando:'pronto', venc:''});
+    return;
+  }
+  const ult=_pgParcelas.length-1;
+  if(mexida===ult) return;          // quem mexeu foi na propria ultima
+  const resto=Math.max(0, centavos(total-somaOutras(ult)));
+  _pgParcelas[ult].valor=resto;
+  _pgParcelas[ult].pct=pctDe(resto,total);
+}
+// O valor do orcamento mudou: refaz os valores pela porcentagem.
+function pgTotalMudou(){
+  const total=totalDoOrcamento();
+  if(!_pgParcelas.length) return;
+  _pgParcelas.forEach(function(p){ if(p.pct!=null) p.valor=centavos(total*(Number(p.pct)||0)/100); });
+  const soma=centavos(_pgParcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  const ult=_pgParcelas[_pgParcelas.length-1];
+  ult.valor=centavos(ult.valor+(total-soma));   // o centavo do arredondamento
+  pgRender();
+}
+// A parcela "quando ficar pronto" vence na previsao de pronto.
+function vencimentoDaParcela(p, previsaoPronto){
+  return p.quando==='pronto' ? String(previsaoPronto||'') : String(p.venc||'');
+}
+
+// O estado da janela aberta. Os campos editam direto aqui (oninput).
+let _pgParcelas=[];
+function preencherSelect(id, lista){
+  const el=document.getElementById(id);
+  if(el && !el.options.length) el.innerHTML=lista.map(function(p){ return '<option value="'+p[0]+'">'+escHtml(p[1])+'</option>'; }).join('');
+}
+function carregarPagMatNoModal(r){
+  preencherSelect('f-pg-condicao', CONDICOES_PAGAMENTO);
+  preencherSelect('f-mat-situacao', SITUACOES_MATERIAL);
+  const pg=(r&&r.pagamento)||null, mat=(r&&r.producao)||null;
+  document.getElementById('f-pg-condicao').value=(pg&&pg.condicao)||'';
+  _pgParcelas=JSON.parse(JSON.stringify((pg&&pg.parcelas)||[]));
+  document.getElementById('f-mat-situacao').value=(mat&&mat.situacao)||'';
+  document.getElementById('f-mat-pronto').value=(mat&&mat.previsaoPronto)||'';
+  document.getElementById('f-mat-chegada').value=(mat&&mat.previsaoChegada)||'';
+  // Parcela antiga sem porcentagem: calcula pelo valor.
+  const tot=totalDoOrcamento();
+  _pgParcelas.forEach(function(p){ if(p.pct==null) p.pct=pctDe(Number(p.valor)||0, tot); });
+  document.getElementById('f-valor').onchange=pgTotalMudou;
+  pgRender();
+}
+async function pgTrocarCondicao(){
+  const cond=document.getElementById('f-pg-condicao').value;
+  if(_pgParcelas.length && !await dlgConfirmar('Trocar a condição', 'Montar as parcelas de novo pela condição escolhida?\n\nAs parcelas que estão na tela serão substituídas.', 'Montar de novo', 'Manter as parcelas')){
+    pgRender(); return;
+  }
+  const valor=lerValorBR(document.getElementById('f-valor').value);
+  _pgParcelas=modeloDeParcelas(cond, valor).map(function(p){ return Object.assign({id:genId()}, p); });
+  pgRender();
+}
+// Parcela nova ja nasce com o que falta para fechar 100%.
+function pgNovaParcela(){
+  const total=totalDoOrcamento();
+  const soma=centavos(_pgParcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  const resto=Math.max(0, centavos(total-soma));
+  _pgParcelas.push({id:genId(), desc:resto>0?'Restante (quando ficar pronto)':'Parcela '+(_pgParcelas.length+1),
+    pct:pctDe(resto,total), valor:resto, quando:resto>0?'pronto':'data', venc:''});
+  if(!document.getElementById('f-pg-condicao').value) document.getElementById('f-pg-condicao').value='outra';
+  pgRender();
+}
+function pgTirarParcela(i){ _pgParcelas.splice(i,1); pgRender(); }
+// Descricao e data: so guardam. Porcentagem e valor: calculam um pelo outro,
+// fecham o restante na ultima parcela e redesenham (no "change", ao sair do
+// campo — redesenhar a cada tecla tiraria o cursor do lugar).
+function pgMudar(i, campo, valor){
+  const p=_pgParcelas[i]; if(!p) return;
+  const total=totalDoOrcamento();
+  if(campo==='pct'){
+    p.pct=Math.max(0, Math.min(100, lerPct(valor)));
+    p.valor=centavos(total*p.pct/100);
+    pgFecharRestante(i); pgRender(); return;
+  }
+  if(campo==='valor'){
+    p.valor=centavos(lerValorBR(valor));
+    p.pct=pctDe(p.valor, total);
+    pgFecharRestante(i); pgRender(); return;
+  }
+  p[campo]=valor;
+  if(campo==='quando') pgRender(); else pgSoma();
+}
+// Embaixo das parcelas: quanto se paga antes e quanto FALTA pagar quando o
+// material ficar pronto (com o vencimento, que e a previsao de pronto).
+function pgSoma(){
+  const el=document.getElementById('f-pg-soma');
+  if(!el) return;
+  const total=totalDoOrcamento();
+  const soma=centavos(_pgParcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  const bate=Math.abs(soma-total)<0.01;
+  if(!_pgParcelas.length){ el.innerHTML=''; return; }
+  const noPronto=centavos(_pgParcelas.filter(function(p){ return p.quando==='pronto'; })
+    .reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  const antes=centavos(soma-noPronto);
+  const prev=document.getElementById('f-mat-pronto').value;
+  el.style.color='';
+  el.innerHTML=
+    (antes>0?'Antes de ficar pronto: <b>R$ '+fmtBR(antes)+'</b> ('+fmtPct(pctDe(antes,total))+'%)<br>':'')+
+    (noPronto>0?'<span style="color:var(--amber)">Falta pagar quando ficar pronto: <b>R$ '+fmtBR(noPronto)+'</b> ('+
+      fmtPct(pctDe(noPronto,total))+'%) · vence '+(prev?'em '+fmtDate(prev):'na previsão de pronto (não informada)')+'</span><br>':'')+
+    (bate?'<span style="color:var(--gray-4)">Total R$ '+fmtBR(soma)+' = valor do orçamento</span>'
+         :'<span style="color:var(--red)">Parcelas somam R$ '+fmtBR(soma)+' — o orçamento é R$ '+fmtBR(total)+'</span>');
+}
+function pgRender(){
+  const cond=document.getElementById('f-pg-condicao').value;
+  const bloco=document.getElementById('f-pg-bloco');
+  bloco.style.display=(cond||_pgParcelas.length)?'':'none';
+  const pronto=document.getElementById('f-mat-pronto').value;
+  document.getElementById('f-pg-parcelas').innerHTML=_pgParcelas.map(function(p,i){
+    const venc=vencimentoDaParcela(p, pronto);
+    // Duas linhas por parcela: a descricao inteira em cima; valor, quando
+    // vence e o botao de tirar embaixo. Numa linha so, a janela estreita
+    // espremia o "quando vence" e empurrava o X para fora (16/11/2026).
+    const caixa='width:100%;min-width:0;box-sizing:border-box';
+    return '<div style="border:1px solid var(--gray-2);border-radius:var(--radius);padding:8px;margin-top:6px">'+
+      '<input value="'+escHtml(p.desc||'')+'" oninput="pgMudar('+i+',\'desc\',this.value)" placeholder="Descrição" style="'+caixa+';margin-bottom:6px">'+
+      '<div style="display:grid;grid-template-columns:62px minmax(0,1fr) minmax(0,1.3fr) minmax(0,1.2fr) auto;gap:6px;align-items:center">'+
+      '<div style="position:relative"><input value="'+fmtPct(p.pct)+'" onchange="pgMudar('+i+',\'pct\',this.value)" title="Porcentagem do orçamento" style="'+caixa+';text-align:right;padding-right:16px"><span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--gray-4)">%</span></div>'+
+      '<input value="'+fmtBR(p.valor)+'" onchange="pgMudar('+i+',\'valor\',this.value)" placeholder="Valor" title="Valor da parcela (R$)" style="'+caixa+';text-align:right">'+
+      '<select onchange="pgMudar('+i+',\'quando\',this.value)" style="'+caixa+'">'+
+        '<option value="data"'+(p.quando!=='pronto'?' selected':'')+'>Vence na data</option>'+
+        '<option value="pronto"'+(p.quando==='pronto'?' selected':'')+'>Quando ficar pronto</option></select>'+
+      (p.quando==='pronto'
+        ? '<span class="note" style="margin:0">'+(venc?'prev. pronto '+fmtDate(venc):'sem previsão de pronto')+'</span>'
+        : '<input type="date" value="'+escHtml(p.venc||'')+'" onchange="pgMudar('+i+',\'venc\',this.value)" style="'+caixa+'">')+
+      '<button type="button" class="act act-del" onclick="pgTirarParcela('+i+')" title="Tirar parcela">✕</button>'+
+      '</div></div>';
+  }).join('');
+  pgSoma();
+  // Dica embaixo da previsao de pronto: compara com a entrada na obra.
+  const dica=document.getElementById('f-mat-dica');
+  if(dica){
+    const r=editId!==null&&data[modalType]?data[modalType][editId]:null;
+    const m=r?marcoDoPrazo(r):null;
+    dica.style.color='';
+    if(pronto && m && pronto>m.data){
+      dica.textContent='⚠️ Fica pronto depois da '+m.nome+' ('+fmtDate(m.data)+').';
+      dica.style.color='var(--red)';
+    } else if(pronto && diasAte(pronto)<0 && ['aguardando','producao'].indexOf(document.getElementById('f-mat-situacao').value)>=0){
+      dica.textContent='⚠️ A previsão já passou: cobrar o fornecedor.';
+      dica.style.color='var(--red)';
+    } else dica.textContent=m?('Entrada na obra / entrega: '+fmtDate(m.data)):'';
+  }
+}
+// O que vai para o registro. Sem condicao e sem parcelas, devolve o que ja
+// estava (null num lancamento novo).
+function lerPagamentoDoModal(antigo){
+  const cond=document.getElementById('f-pg-condicao').value;
+  if(!cond && !_pgParcelas.length) return (antigo&&antigo.pagamento)||null;
+  const pronto=document.getElementById('f-mat-pronto').value;
+  return {condicao:cond||'outra',
+    parcelas:_pgParcelas.map(function(p){
+      return Object.assign({}, p, {valor:centavos(p.valor), venc:vencimentoDaParcela(p, pronto)});
+    })};
+}
+function lerMaterialDoModal(antigo){
+  const sit=document.getElementById('f-mat-situacao').value;
+  const pronto=document.getElementById('f-mat-pronto').value;
+  const chegada=document.getElementById('f-mat-chegada').value;
+  const ant=(antigo&&antigo.producao)||null;
+  if(!sit && !pronto && !chegada) return ant;
+  if(ant && ant.situacao===sit && (ant.previsaoPronto||'')===pronto && (ant.previsaoChegada||'')===chegada) return ant;
+  return {situacao:sit, previsaoPronto:pronto, previsaoChegada:chegada, em:new Date().toISOString(), por:usuarioLogado()||'—'};
+}
+// Parcelas que nao fecham com o valor: pergunta antes de gravar.
+function confirmarSomaParcelas(entry){
+  const pg=entry.pagamento;
+  if(!pg||!pg.parcelas||!pg.parcelas.length) return true;
+  const soma=centavos(pg.parcelas.reduce(function(a,p){ return a+(Number(p.valor)||0); },0));
+  if(Math.abs(soma-centavos(entry.valor))<0.01) return true;
+  return confirm('As parcelas somam R$ '+fmtBR(soma)+', mas o orçamento é R$ '+fmtBR(entry.valor)+'.\n\nSalvar assim mesmo?');
+}
+// Linha de resumo na tabela, embaixo do status.
+// Coluna "Pronto previsto" (pedido do Ander, 16/11/2026): quando o material
+// fica pronto no fornecedor. Vermelha se a data passou e ele ainda nao ficou
+// pronto; vermelha tambem se cai depois da entrada na obra.
+function celulaProntoPrevisto(r){
+  const mat=r.producao||{};
+  const sit=mat.situacao||'';
+  if(sit==='retirado') return '<td><span style="color:var(--green);font-weight:600">✅ Chegou</span></td>';
+  // Na transportadora: o que importa agora e quando chega.
+  if(sit==='transporte'){
+    const ch=mat.previsaoChegada||'';
+    if(!ch) return '<td><span style="font-weight:600">🚚 Na transportadora</span><span class="td-by" style="color:var(--amber)">sem previsão de chegada</span></td>';
+    const f=diasAte(ch);
+    return '<td style="white-space:nowrap"><span style="font-weight:600">🚚 chega '+fmtDate(ch)+'</span>'+
+      '<span class="td-by" style="'+(f<0?'color:var(--red);font-weight:600':'')+'">'+
+      (f<0?'venceu há '+(-f)+' dia'+(f===-1?'':'s')+': cobrar a transportadora':(f===0?'chega hoje':'faltam '+f+' dia'+(f===1?'':'s')))+
+      (r.transportadora?'<br>'+escHtml(r.transportadora):'')+'</span></td>';
+  }
+  if(sit==='pronto') return '<td><span style="color:var(--green);font-weight:600">✅ Pronto</span>'+
+    (mat.previsaoPronto?'<span class="td-by">previsto '+fmtDate(mat.previsaoPronto)+'</span>':'')+'</td>';
+  const prev=mat.previsaoPronto||'';
+  if(!prev) return '<td style="color:var(--gray-4)">—</td>';
+  const falta=diasAte(prev);
+  const m=marcoDoPrazo(r);
+  const depoisDaObra=!!(m && prev>m.data);
+  const cor=(falta<0||depoisDaObra)?'var(--red)':'inherit';
+  const sub=falta<0?'venceu há '+(-falta)+' dia'+(falta===-1?'':'s')+': cobrar'
+    :(falta===0?'é hoje':'faltam '+falta+' dia'+(falta===1?'':'s'));
+  return '<td style="white-space:nowrap"><span style="color:'+cor+';font-weight:600">'+fmtDate(prev)+'</span>'+
+    '<span class="td-by" style="white-space:normal">'+sub+(depoisDaObra?'<br>⚠️ depois da '+m.nome:'')+'</span></td>';
+}
+// Coluna "Pagamento" (pedido do Ander, 16/11/2026): como ficou combinado.
+// Condicao em cima e cada parcela embaixo, com valor e quando vence. A
+// situacao paga/a pagar vira do Financeiro (etapa 2B), que e quem da baixa.
+const CONDICAO_CURTA={'avista':'À vista','50-50':'50% + 50%','100-antecipado':'100% antecipado',
+  'na-retirada':'Na retirada / envio','parcelado':'Parcelado','outra':'Outra'};
+function celulaPagamento(r){
+  const pg=r.pagamento;
+  if(!pg||!(pg.parcelas||[]).length) return '<td style="color:var(--gray-4)">—</td>';
+  const prev=(r.producao||{}).previsaoPronto||'';
+  const linhas=pg.parcelas.map(function(p){
+    const venc=vencimentoDaParcela(p, prev);
+    const quando=p.quando==='pronto'
+      ? ('quando pronto'+(venc?' ('+fmtDate(venc)+')':''))
+      : (venc?'venc. '+fmtDate(venc):'sem data');
+    // Duas linhas por parcela: a descricao em cima e, embaixo, valor e
+    // vencimento sem quebrar. Numa linha so, o valor partia ao meio ("R$" de
+    // um lado e o numero do outro) — reclamacao do Ander em 16/11/2026.
+    const st=r.pedidoFeito?situacaoDaParcela(r.id,p.id):null;
+    const selo=!r.pedidoFeito?'':(st&&st.pago>=Number(p.valor)-0.01&&st.pago>0
+      ? ' <span style="color:var(--green);font-weight:600">✅ pago'+(st.pagoEm?' '+fmtDate(st.pagoEm):'')+'</span>'
+      : (st&&st.pago>0?' <span style="color:var(--amber);font-weight:600">◐ R$ '+fmtBR(st.pago)+' pago</span>'
+        : ' <span style="color:var(--gray-4)">⏳ a pagar</span>'));
+    return '<div style="margin-top:4px;font-size:11px;line-height:1.35">'+
+      '<div style="color:var(--gray-5)">'+escHtml(p.desc||'Parcela')+selo+'</div>'+
+      '<div style="white-space:nowrap">'+(p.pct!=null?fmtPct(p.pct)+'% · ':'')+'<b>R$ '+fmtBR(p.valor)+'</b> <span style="color:var(--gray-4)">· '+quando+'</span></div>'+
+      '</div>';
+  }).join('');
+  return '<td style="min-width:190px"><span style="font-weight:600">💰 '+escHtml(CONDICAO_CURTA[pg.condicao]||'Combinado')+'</span>'+linhas+'</td>';
+}
+// Embaixo do status: so a situacao do material (o pagamento tem coluna).
+function resumoPagMat(r){
+  const partes=[];
+  const mat=r.producao;
+  if(mat&&mat.situacao){   // a previsao tem coluna propria
+    const sit=rotuloDe(SITUACOES_MATERIAL, mat.situacao)||'';
+    const atrasada=mat.previsaoPronto && diasAte(mat.previsaoPronto)<0 && ['aguardando','producao'].indexOf(mat.situacao)>=0;
+    partes.push('<span class="td-by" style="white-space:normal'+(atrasada?';color:var(--red);font-weight:600':'')+'">🏭 '+
+      escHtml(sit||'Material')+'</span>');
+  }
+  return partes.join('');
+}
+// Os avisos do material (topo da tela).
+function avisosDeMaterial(){
+  const saida=[];
+  const rot=function(r){ return r.obra+' — '+(r.fornecedor||'sem fornecedor')+(r.material?' ('+r.material+')':''); };
+  ['urgente','importante','pago'].forEach(function(aba){
+    (data[aba]||[]).forEach(function(r){
+      const mat=r.producao||{};
+      const sit=mat.situacao||'';
+      if(sit==='retirado') return;
+      const prev=mat.previsaoPronto||'';
+      // Pronto: se ja esta tudo pago (no Financeiro, ou em Obras pagas), e
+      // hora de retirar ou pedir o envio; se nao, falta pagar para liberar.
+      if(sit==='pronto'){
+        const pp=pagoDoPedido(r);
+        const quitado=aba==='pago' || (pp && pp.total>0 && pp.pago>=pp.total-0.01);
+        saida.push(quitado
+          ? {icone:'📦', txt:rot(r)+' — <strong>pago e pronto</strong>: retirar ou pedir o envio'}
+          : {icone:'💵', txt:rot(r)+' — <strong>pronto, aguardando pagamento</strong>'+
+              (pp&&pp.total>0?' (falta R$ '+fmtBR(pp.total-pp.pago)+')':'')+' para liberar o material'});
+        return;
+      }
+      // Na transportadora: cobra quando a previsao de chegada passa.
+      if(sit==='transporte'){
+        const ch=mat.previsaoChegada||'';
+        if(!ch) saida.push({icone:'🚚', txt:rot(r)+' — na transportadora <strong>sem previsão de chegada</strong>: confirmar com a transportadora'});
+        else if(diasAte(ch)<0) saida.push({icone:'🚚', txt:rot(r)+' — previsão de chegada ('+fmtDate(ch)+') <strong>venceu há '+(-diasAte(ch))+' dia(s)</strong>: cobrar a transportadora'});
+        return;
+      }
+      if(prev && ['aguardando','producao',''].indexOf(sit)>=0 && diasAte(prev)<0){
+        saida.push({icone:'⏰', txt:rot(r)+' — previsão de pronto ('+fmtDate(prev)+') <strong>venceu há '+(-diasAte(prev))+' dia(s)</strong>: cobrar o fornecedor'});
+        return;
+      }
+      const m=marcoDoPrazo(r);
+      if(prev && m && prev>m.data){
+        saida.push({icone:'⚠️', txt:rot(r)+' — fica pronto em '+fmtDate(prev)+', <strong>depois da '+m.nome+'</strong> ('+fmtDate(m.data)+')'});
+      }
+    });
+  });
+  return saida;
+}
 function calcEntregaPorMedicao(){
   const medicao = document.getElementById('f-medicao').value;
   const diasEl = document.getElementById('f-dias-uteis');
@@ -2442,6 +3598,8 @@ function calcEntregaPorMedicao(){
   const fmt = novaEntrega.toLocaleDateString('pt-BR');
   const iso = novaEntrega.toISOString().slice(0,10);
   resultado.textContent = fmt;
+  // Entrega que vem da Obra nao e sobrescrita pela conta daqui (16/11/2026).
+  if(document.getElementById('f-entrega').readOnly) return;
   document.getElementById('f-entrega').value = iso;
 }
 
@@ -3536,16 +4694,21 @@ function checkNotifications(){
   const overdue=[], dueToday=[], leadCompromised=[];
 
   [...data.urgente, ...data.importante].forEach(r=>{
-    if(!r.entrega || r.entrega==='—') return;
+    const marco=marcoDoPrazo(r);
+    if(!marco) return;
     if(r.status==='Aguardando cliente') return;
-    const dt = new Date(r.entrega); dt.setHours(0,0,0,0);
-    const diff = Math.round((dt-today)/(1000*60*60*24));
-    const threshold = r.tipo==='especial' ? 60 : 30;
+    const diff = diasAteOMarco(r);
+    const threshold = diasDeAntecedencia(r);
     const tipoLabel = r.tipo==='especial' ? 'Especial' : 'Padrão';
-    const label = `${r.obra} — ${r.fornecedor} [${tipoLabel}] (R$ ${fmtBR(r.valor)})`;
-    if(diff < 0) overdue.push({label, days: Math.abs(diff), tipo: r.tipo||'padrao'});
-    else if(diff === 0) dueToday.push({label, tipo: r.tipo||'padrao'});
-    else if(diff <= threshold) leadCompromised.push({label, days: diff, threshold, tipo: r.tipo||'padrao'});
+    const label = `${r.obra} — ${r.fornecedor} [${tipoLabel}] (R$ ${fmtBR(r.valor)}) · ${marco.nome} ${fmtDate(marco.data)}`;
+    if(diff < 0) overdue.push({label, days: Math.abs(diff), tipo: r.tipo||'padrao', marco: marco.nome});
+    else if(diff === 0) dueToday.push({label, tipo: r.tipo||'padrao', marco: marco.nome});
+    else if(diff <= threshold){
+      // Onde ainda da para comprar (16/11/2026): o aviso diz para onde mudar.
+      const fase=faseDaCompra(r);
+      const agora=fase&&fase.atual?(fase.atual.onde+' até '+fmtDate(fase.atual.ate)):'';
+      leadCompromised.push({label, days: diff, threshold, tipo: r.tipo||'padrao', marco: marco.nome, agora});
+    }
   });
 
   // Manutenção pendentes (não compradas)
@@ -3566,10 +4729,11 @@ function checkNotifications(){
 
 function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, manutFora, manutTransporte){
   const banner = document.getElementById('notif-banner');
-  const hasAny = overdue.length||dueToday.length||leadCompromised.length||manutHoje.length||manutSemana.length||manutFora.length||(manutTransporte&&manutTransporte.length);
+  const avisosMat = avisosDeMaterial();
+  const hasAny = overdue.length||dueToday.length||leadCompromised.length||manutHoje.length||manutSemana.length||manutFora.length||(manutTransporte&&manutTransporte.length)||avisosMat.length;
   if(!hasAny){ banner.style.display='none'; return; }
 
-  const total = overdue.length+dueToday.length+leadCompromised.length+manutHoje.length+manutSemana.length+manutFora.length+(manutTransporte?manutTransporte.length:0);
+  const total = overdue.length+dueToday.length+leadCompromised.length+manutHoje.length+manutSemana.length+manutFora.length+(manutTransporte?manutTransporte.length:0)+avisosMat.length;
   const critico = overdue.length||leadCompromised.length||manutHoje.length;
 
   let html='';
@@ -3577,7 +4741,7 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
   if(overdue.length){
     html+=`<div class="notif-banner notif-banner-error">
       <div style="flex:1">
-        <strong>🚨 ${overdue.length} obra${overdue.length>1?'s':''} com entrega ATRASADA</strong>
+        <strong>🚨 ${overdue.length} obra${overdue.length>1?'s':''} com a data da obra VENCIDA (entrada na obra ou entrega)</strong>
         <div style="margin-top:6px">
           ${overdue.map(o=>`<div class="notif-item">⚠️ ${o.label} — <strong>${o.days} dia${o.days>1?'s':''} de atraso</strong></div>`).join('')}
         </div>
@@ -3589,7 +4753,7 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
   if(dueToday.length){
     html+=`<div class="notif-banner notif-banner-warning">
       <div style="flex:1">
-        <strong>📅 ${dueToday.length} obra${dueToday.length>1?'s':''} com entrega HOJE</strong>
+        <strong>📅 ${dueToday.length} obra${dueToday.length>1?'s':''} com entrada na obra ou entrega HOJE</strong>
         <div style="margin-top:6px">
           ${dueToday.map(o=>`<div class="notif-item">🔔 ${o.label}</div>`).join('')}
         </div>
@@ -3604,11 +4768,11 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
     html+=`<div class="notif-banner notif-banner-error" style="background:#FFF0F0;border-left-color:#8B0000">
       <div style="flex:1">
         <strong>🔴 ${leadCompromised.length} obra${leadCompromised.length>1?'s':''} com LEAD TIME COMPROMETIDO — compra urgente!</strong>
-        <div style="font-size:11px;color:#8B0000;margin:4px 0 8px">O prazo de entrega do material já está comprometido. Compre imediatamente!</div>
+        <div style="font-size:11px;color:#8B0000;margin:4px 0 8px">Já não dá tempo de comprar fora do estado. Padrão: mudar a compra para local. Especial: quase nunca tem no estado — urgente.</div>
         ${padrao.length?`<div style="font-size:11px;font-weight:700;color:#8B0000;margin-bottom:4px">📦 Padrão (Lead Time 30 dias)</div>
-          ${padrao.map(o=>`<div class="notif-item">🔴 ${o.label} — entrega em <strong>${o.days} dia${o.days>1?'s':''}</strong> — compra atrasada ${o.threshold-o.days} dia${o.threshold-o.days>1?'s':''}</div>`).join('')}`:''}
+          ${padrao.map(o=>`<div class="notif-item">🔴 ${o.label} — ${o.marco||'entrega'} em <strong>${o.days} dia${o.days>1?'s':''}</strong> — ${o.agora?('comprar em <strong>'+o.agora+'</strong>'):(o.tipo==='especial'?'prazo de fora venceu; no estado quase nunca tem':'nem a compra local chega a tempo')}</div>`).join('')}`:''}
         ${especial.length?`<div style="font-size:11px;font-weight:700;color:#8B0000;margin-top:6px;margin-bottom:4px">Especial (Lead Time 60 dias)</div>
-          ${especial.map(o=>`<div class="notif-item">🔴 ${o.label} — entrega em <strong>${o.days} dia${o.days>1?'s':''}</strong> — compra atrasada ${o.threshold-o.days} dia${o.threshold-o.days>1?'s':''}</div>`).join('')}`:''}
+          ${especial.map(o=>`<div class="notif-item">🔴 ${o.label} — ${o.marco||'entrega'} em <strong>${o.days} dia${o.days>1?'s':''}</strong> — ${o.agora?('comprar em <strong>'+o.agora+'</strong>'):(o.tipo==='especial'?'prazo de fora venceu; no estado quase nunca tem':'nem a compra local chega a tempo')}</div>`).join('')}`:''}
       </div>
       <span class="notif-close" onclick="this.parentElement.style.display='none'">✕</span>
     </div>`;
@@ -3663,6 +4827,18 @@ function showBanner(overdue, dueToday, leadCompromised, manutHoje, manutSemana, 
     </div>`;
   }
 
+  if(avisosMat.length){
+    html+=`<div class="notif-banner" style="background:#FFF8E1;border-left:4px solid #B9770E">
+      <div style="flex:1">
+        <strong>🏭 ${avisosMat.length} aviso${avisosMat.length>1?'s':''} de material no fornecedor</strong>
+        <div style="margin-top:6px">
+          ${avisosMat.map(o=>`<div class="notif-item">${o.icone} ${o.txt}</div>`).join('')}
+        </div>
+      </div>
+      <span class="notif-close" onclick="this.parentElement.style.display='none'">✕</span>
+    </div>`;
+  }
+
   banner.innerHTML=
     `<div class="notif-resumo" style="background:${critico?'#FDF0EE':'#FEF7E6'};color:${critico?'#7a1f1f':'#6b4100'}" onclick="toggleNotif()">
       <strong>${critico?'🚨':'⚠️'} ${total} aviso${total>1?'s':''} de compras</strong>
@@ -3682,9 +4858,9 @@ async function sendBrowserNotifications(overdue, dueToday, leadCompromised, manu
     try{ new Notification(title,{body,icon:'/favicon.ico',tag:title}); }catch(e){}
   };
 
-  overdue.forEach(o=>send('🚨 Entrega Atrasada — Daluminium',`${o.label} — ${o.days} dia${o.days>1?'s':''} de atraso!`));
-  dueToday.forEach(o=>send('📅 Entrega Hoje — Daluminium', o.label));
-  leadCompromised.forEach(o=>send('🔴 Lead Time Comprometido — Daluminium',`${o.label} — entrega em ${o.days} dias!`));
+  overdue.forEach(o=>send('🚨 Data da obra vencida — Daluminium',`${o.label} — ${o.days} dia${o.days>1?'s':''} de atraso!`));
+  dueToday.forEach(o=>send('📅 Entrada na obra ou entrega hoje — Daluminium', o.label));
+  leadCompromised.forEach(o=>send('🔴 Lead Time Comprometido — Daluminium',`${o.label} — ${o.marco||'entrega'} em ${o.days} dias!`));
   if(manutHoje.length) send('🔧 Manutenção Urgente — Daluminium',`${manutHoje.length} compra${manutHoje.length>1?'s':''} para comprar HOJE!`);
   if(manutFora.length) send('🚚 Manutenção Fora do Estado — Daluminium',`${manutFora.length} item${manutFora.length>1?'ns':''} sem fornecedor local.`);
 }
@@ -4591,7 +5767,8 @@ async function persistUsers(){
 // servidor, reabrir ou remover uma manutencao concluida era desfeito em
 // silencio quando outra pessoa gravava ao mesmo tempo — no caso do reabrir, o
 // registro ficava nas DUAS listas. (08/10/2026)
-const LISTAS_DADOS=['urgente','importante','pago','manutencao','manutComprada','historico','usuarios'];
+// cotacoesGuardadas (16/11/2026): as outras cotacoes de um pedido feito.
+const LISTAS_DADOS=['urgente','importante','pago','manutencao','manutComprada','historico','usuarios','cotacoesGuardadas'];
 // Registro COM id e comparado pelo id: da para distinguir edicao de inclusao.
 // Registro antigo, ainda SEM id, cai na comparacao por conteudo — nesse caso
 // uma edicao aparece como remocao + inclusao, e por isso a juncao automatica
